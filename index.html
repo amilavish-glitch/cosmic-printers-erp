@@ -115,15 +115,14 @@
       max-width: 400px; width: 100%; background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 20px; text-align: center;
     }
-    .customer-only-mode #tabsBar,
-    .customer-only-mode #staffHeaderTools {
+    body.customer-only-mode .tabs,
+    body.customer-only-mode #staffHeaderTools {
       display: none !important;
     }
   </style>
 </head>
 <body>
 
-<!-- Department Password / PIN Modal with 3-Strike & 24h Lockout -->
 <div id="lockScreen">
   <div class="lock-box">
     <h2 style="justify-content:center; border:none; margin-bottom:6px;">🔐 Department Access Lock</h2>
@@ -182,7 +181,7 @@
   <button class="tab active" data-tab="customer-app" onclick="handleTabClick('customer-app', this)">🛍️ Customer App</button>
   <button class="tab" data-tab="inventory-prod" onclick="handleTabClick('inventory-prod', this)">📦 QR Inventory & Production</button>
   <button class="tab" data-tab="marketing-tab" onclick="handleTabClick('marketing-tab', this)">📣 Marketing</button>
-  <button class="tab" data-tab="finance-tab" onclick="handleTabClick('finance-tab', this)">💳 Finance & Naya</button>
+  <button class="tab" data-tab="finance-tab" onclick="handleTabClick('finance-tab', this)">💳 Finance & Credit</button>
   <button class="tab" data-tab="owner-tab" onclick="handleTabClick('owner-tab', this)">👑 Owner HQ</button>
 </div>
 
@@ -336,26 +335,26 @@
     </div>
   </div>
 
-  <!-- 4. FINANCE & NAYA TAB -->
+  <!-- 4. FINANCE & CREDIT TAB -->
   <div id="finance-tab" class="panel">
     <div class="card">
-      <h2>💳 Finance Naya Management & Sir App Notification</h2>
+      <h2>💳 Finance & Credit Management</h2>
       <div class="g4">
         <div>
-          <label>Naya Type</label>
+          <label>Credit Type</label>
           <select id="nayaTypeInput">
-            <option value="SIR_OWES_US">Sir Apita Wena Naya</option>
-            <option value="WE_OWE_SUPPLIER">Api Badu Ganna Ayata Wena Naya</option>
+            <option value="SIR_OWES_US">Customer Due (Receivable)</option>
+            <option value="WE_OWE_SUPPLIER">Supplier Due (Payable)</option>
           </select>
         </div>
         <div><label>Name</label><input id="nayaPartyInput" placeholder="Kasun / Paper Supplier" /></div>
         <div><label>Amount (LKR)</label><input type="number" id="nayaAmtInput" value="3500" min="1" /></div>
         <div><label>Due Date</label><input type="date" id="nayaDueInput" /></div>
       </div>
-      <button style="margin-top:10px;" onclick="addNaya()">➕ Add Naya Record</button>
+      <button style="margin-top:10px;" onclick="addNaya()">➕ Add Credit Record</button>
       <div class="g2" style="margin-top:12px;">
-        <div class="box"><div style="font-size:12px; color:var(--muted);">Sirla Apita Wena Naya</div><div class="kpi" id="sirNayaTotal">LKR 0.00</div></div>
-        <div class="box"><div style="font-size:12px; color:var(--muted);">Api Badu Ganna Ayata Wena Naya</div><div class="kpi" id="supNayaTotal" style="color:var(--bad);">LKR 0.00</div></div>
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Customer Due (Receivable)</div><div class="kpi" id="sirNayaTotal">LKR 0.00</div></div>
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Supplier Due (Payable)</div><div class="kpi" id="supNayaTotal" style="color:var(--bad);">LKR 0.00</div></div>
       </div>
       <table><thead><tr><th>Type</th><th>Name</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="nayaTableBody"></tbody></table>
     </div>
@@ -440,7 +439,7 @@
 
 <script>
   const CLOUD_WEBHOOK_URL = "";
-  const STORAGE_KEY = "cosmic_printers_erp_v8";
+  const STORAGE_KEY = "cosmic_printers_erp_v9";
   const LOCK_DURATION_MS = 24 * 60 * 60 * 1000;
 
   let pendingTabTarget = null;
@@ -537,7 +536,7 @@
     const names = {
       "inventory-prod": "Production & QR Inventory",
       "marketing-tab": "Marketing Department",
-      "finance-tab": "Finance & Naya",
+      "finance-tab": "Finance & Credit",
       "owner-tab": "Owner HQ (Private)"
     };
     document.getElementById("lockDeptLabel").textContent = `${names[tabId] || tabId} සඳහා Password / PIN ඇතුළත් කරන්න:`;
@@ -794,14 +793,14 @@
     const amount = Math.max(0, parseFloat(document.getElementById("nayaAmtInput").value || "0"));
     const dueDate = document.getElementById("nayaDueInput").value || todayISO();
     state.nayas.unshift({ id: "NY-" + Math.floor(1000 + Math.random() * 9000), type, party, amount, dueDate, settled: false });
-    saveState("NAYA_ADD", { type, party, amount });
+    saveState("CREDIT_ADD", { type, party, amount });
     renderAll();
   }
 
   function notifyCustomerFromFinance(id) {
     const n = state.nayas.find(x => x.id === id);
     if (!n) return;
-    document.getElementById("customerAlertText").textContent = ` ${n.party} — හිඟ ණය LKR ${n.amount.toFixed(2)} (Due: ${n.dueDate}) පියවීමට මතක් කිරීමකි.`;
+    document.getElementById("customerAlertText").textContent = ` ${n.party} — හිඟ ශේෂය LKR ${n.amount.toFixed(2)} (Due: ${n.dueDate}) පියවීමට මතක් කිරීමකි.`;
     document.getElementById("customerAlertBox").style.display = "block";
     activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
   }
@@ -810,7 +809,7 @@
     const n = state.nayas.find(x => x.id === id);
     if (!n) return;
     n.settled = !n.settled;
-    saveState("NAYA_PAID", { id, settled: n.settled });
+    saveState("CREDIT_PAID", { id, settled: n.settled });
     renderAll();
   }
 
@@ -869,4 +868,73 @@
   function exportJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a
+    const a = document.createElement("a");
+    a.href = url; a.download = "cosmic_sync_data.json"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(ev) {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try { state = { ...structuredClone(defaultState), ...JSON.parse(r.result) }; saveState(); renderAll(); }
+      catch { alert("Invalid JSON"); }
+    };
+    r.readAsText(f);
+  }
+
+  function renderAll() {
+    document.getElementById("pinProdInput").value = state.pins["inventory-prod"];
+    document.getElementById("pinMktInput").value = state.pins["marketing-tab"];
+    document.getElementById("pinFinInput").value = state.pins["finance-tab"];
+    document.getElementById("pinOwnerInput").value = state.pins["owner-tab"];
+
+    const deptLabels = {
+      "inventory-prod": "Production",
+      "marketing-tab": "Marketing",
+      "finance-tab": "Finance",
+      "owner-tab": "Owner HQ"
+    };
+    document.getElementById("lockStatusSummary").innerHTML = Object.keys(deptLabels).map(k => {
+      const locked = isTabLocked(k);
+      const fails = state.security.failedAttempts[k] || 0;
+      return `<strong>${deptLabels[k]}:</strong> ${locked ? `<span style="color:#fca5a5;">LOCKED (${formatRemainingLock(k)})</span>` : `Active (Fails: ${fails}/3)`}`;
+    }).join(" &nbsp;|&nbsp; ");
+
+    document.getElementById("cfgComm").value = state.config.commPct;
+    document.getElementById("cfgBonus").value = state.config.orderBonus;
+    document.getElementById("cfgWasteLimit").value = state.config.maxWasteLimit;
+    document.getElementById("activePrintItemLabel").textContent = state.activePrintingItem;
+    document.getElementById("customerOrdersBody").innerHTML = state.orders.map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.paperType}</td><td>${o.sheets}</td><td>${o.printDate}</td><td>LKR ${o.total.toFixed(2)}</td><td><span class="pill">${o.payMethod}</span></td></tr>`).join("");
+    document.getElementById("invCodesList").innerHTML = state.inventory.map(i => `<option value="${i.code}">${i.category} - ${i.name}</option>`).join("");
+    document.getElementById("inventoryTableBody").innerHTML = [...state.inventory].sort((a, b) => a.category.localeCompare(b.category)).map(i => `<tr><td><span class="pill">${i.code}</span></td><td><strong>${i.category}</strong></td><td>${i.name}</td><td>${i.qty}</td><td>LKR ${i.cost.toFixed(2)}</td></tr>`).join("");
+    const todayW = state.wastage.filter(w => w.date === todayISO()).reduce((s, w) => s + w.qty, 0);
+    document.getElementById("treatBanner").innerHTML = todayW <= state.config.maxWasteLimit
+      ? `🍪🍨 <strong>Treat Unlocked!</strong> Today wastage (${todayW}) <= Limit (${state.config.maxWasteLimit})`
+      : `⚠️ <strong>Treat Locked:</strong> Today wastage (${todayW}) > Limit (${state.config.maxWasteLimit}).`;
+    document.getElementById("wastageTableBody").innerHTML = state.wastage.map(w => `<tr><td>${w.photo ? `<img class="thumb" src="${w.photo}"/>` : "-"}</td><td>${w.reason}</td><td>${w.qty}</td><td>${w.date}</td></tr>`).join("");
+    document.getElementById("otherExpTableBody").innerHTML = state.otherExpenses.map(e => `<tr><td>${e.photo ? `<img class="thumb" src="${e.photo}"/>` : "-"}</td><td>${e.title}</td><td>LKR ${e.amt.toFixed(2)}</td><td>${e.date}</td></tr>`).join("");
+    const mktFilter = (document.getElementById("mktOfficerInput").value || "").trim().toLowerCase();
+    const approved = state.receipts.filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!mktFilter || r.officer.toLowerCase().includes(mktFilter))).reduce((s, r) => s + r.commission, 0);
+    const pending = state.receipts.filter(r => r.status === "PENDING").length;
+    document.getElementById("mktApprovedSum").textContent = `LKR ${approved.toFixed(2)}`;
+    document.getElementById("mktPendingNum").textContent = String(pending);
+    document.getElementById("mktTableBody").innerHTML = state.receipts.map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer}</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><span class="pill">${r.status}</span></td></tr>`).join("");
+    document.getElementById("approvalTableBody").innerHTML = state.receipts.filter(r => r.status === "PENDING").map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer} (${r.slipRef})</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><button class="ok sm" onclick="decideReceipt('${r.id}',true)">Accept</button> <button class="bad sm" onclick="decideReceipt('${r.id}',false)">Reject</button></td></tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted);">Pending receipts නැත.</td></tr>`;
+    const sirNaya = state.nayas.filter(n => n.type === "SIR_OWES_US" && !n.settled).reduce((s, n) => s + n.amount, 0);
+    const supNaya = state.nayas.filter(n => n.type === "WE_OWE_SUPPLIER" && !n.settled).reduce((s, n) => s + n.amount, 0);
+    document.getElementById("sirNayaTotal").textContent = `LKR ${sirNaya.toFixed(2)}`;
+    document.getElementById("supNayaTotal").textContent = `LKR ${supNaya.toFixed(2)}`;
+    document.getElementById("nayaTableBody").innerHTML = state.nayas.map(n => `<tr><td><span class="pill">${n.type === "SIR_OWES_US" ? "Customer Due" : "Supplier Due"}</span></td><td>${n.party}</td><td>LKR ${n.amount.toFixed(2)}</td><td>${n.dueDate}</td><td>${n.settled ? "Settled" : "Unpaid"}</td><td>${n.type === "SIR_OWES_US" && !n.settled ? `<button class="sec sm" onclick="notifyCustomerFromFinance('${n.id}')">🔔 Notify Customer App</button> ` : ""}<button class="ok sm" onclick="toggleNayaPaid('${n.id}')">${n.settled ? "Reopen" : "Mark Paid"}</button></td></tr>`).join("");
+    document.getElementById("staffTableBody").innerHTML = state.staff.map(s => `<tr><td><strong>${s.name}</strong></td><td><span class="pill">${s.dept}</span></td><td>LKR ${s.salary.toFixed(2)}</td></tr>`).join("");
+    renderSalaryCalc();
+    renderPaperChart();
+  }
+
+  populateAvailableDates();
+  applyDeptUrlOnLoad();
+  renderAll();
+</script>
+</body>
+</html>
