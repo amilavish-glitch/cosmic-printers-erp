@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cosmic Printers ERP | Smart GUI & Operations</title>
+  <style>
+    :root {
+      --bg: #070d19;
+      --card: #131f35;
+      --card2: #0b1324;
+      --accent: #f59e0b;
+      --accent2: #8b5cf6;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #283a5a;
+      --ok: #10b981;
+      --bad: #ef4444;
+      --info: #38bdf8;
+    }
+    * { box-sizing: border-box; font-family: "Segoe UI", system-ui, sans-serif; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top right, #1a1538 0%, var(--bg) 55%);
+      color: var(--text);
+      padding-bottom: 60px;
+    }
+    header {
+      background: rgba(2, 6, 23, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand-wrap { display: flex; align-items: center; gap: 12px; }
+    .brand-title { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: 0.4px; }
+    .brand-sub { font-size: 12px; color: var(--muted); display: block; }
+    .tabs {
+      display: flex; gap: 8px; padding: 10px 16px;
+      background: #040914; border-bottom: 1px solid var(--border); overflow-x: auto;
+    }
+    .tab {
+      background: var(--card); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 14px; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap;
+    }
+    .tab.active { background: linear-gradient(135deg, var(--accent), #f97316); color: #000; border-color: transparent; }
+    .wrap { max-width: 1120px; margin: 16px auto; padding: 0 14px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: linear-gradient(180deg, rgba(25, 39, 66, 0.92), rgba(15, 25, 45, 0.95));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    h2 {
+      margin: 0 0 12px; font-size: 16px; color: var(--accent);
+      border-bottom: 1px solid var(--border); padding-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .g2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 780px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    input, select {
+      width: 100%; padding: 9px 11px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card2); color: var(--text); font-size: 13px;
+    }
+    button {
+      padding: 9px 14px; border-radius: 8px; border: none; font-weight: 700;
+      cursor: pointer; background: var(--accent); color: #000; font-size: 13px;
+    }
+    button.sec { background: #263654; color: #fff; }
+    button.ok { background: var(--ok); color: #000; }
+    button.bad { background: var(--bad); color: #fff; }
+    button.sm { padding: 5px 9px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+    th { background: var(--card2); color: var(--accent); }
+    .pill {
+      display: inline-block; padding: 3px 8px; border-radius: 12px;
+      font-size: 11px; font-weight: 700; background: #09101f; border: 1px solid var(--border);
+    }
+    .box { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .kpi { font-size: 18px; font-weight: 800; color: var(--accent); margin-top: 4px; }
+    .bar-row { margin-bottom: 9px; }
+    .bar-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+    .bar-bg { height: 12px; background: var(--card2); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--info), var(--accent2)); }
+    .notif-banner {
+      display: none; background: linear-gradient(90deg, #1e3a8a, #312e81);
+      border: 1px solid var(--info); color: #f0f9ff;
+      padding: 12px 16px; border-radius: 12px; margin-bottom: 14px;
+    }
+    .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+    .ai-photo-card {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .qr-card {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+      background: #fff; color: #000; padding: 10px; border-radius: 10px; margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand-wrap">
+    <!-- AI-style SVG Brand Emblem -->
+    <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#8b5cf6"/>
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="16" fill="url(#g1)"/>
+      <rect x="14" y="16" width="36" height="24" rx="5" fill="#0b1324"/>
+      <rect x="20" y="34" width="24" height="16" rx="2" fill="#f8fafc"/>
+      <circle cx="42" cy="24" r="3" fill="#10b981"/>
+    </svg>
+    <div class="brand-title">
+      COSMIC PRINTERS ERP
+      <span class="brand-sub" id="deptSub">Customer App • QR Inventory • Finance Naya • Owner HQ</span>
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <span class="pill" id="cloudBadge">Cloud: Ready</span>
+    <button class="sec sm" onclick="exportJSON()">⬇️ JSON Export</button>
+    <label class="sec sm" style="margin:0; cursor:pointer; display:inline-flex; align-items:center;">
+      ⬆️ JSON Import
+      <input type="file" accept=".json" style="display:none;" onchange="importJSON(event)" />
+    </label>
+  </div>
+</header>
+
+<div class="tabs" id="tabsBar">
+  <button class="tab active" data-tab="customer-app" onclick="openTab('customer-app', this)">🛍️ Customer App</button>
+  <button class="tab" data-tab="inventory-prod" onclick="openTab('inventory-prod', this)">📦 QR Inventory & Production</button>
+  <button class="tab" data-tab="marketing-tab" onclick="openTab('marketing-tab', this)">📣 Marketing</button>
+  <button class="tab" data-tab="finance-tab" onclick="openTab('finance-tab', this)">💳 Finance & Naya</button>
+  <button class="tab" data-tab="owner-tab" onclick="openTab('owner-tab', this)">👑 Owner HQ</button>
+</div>
+
+<div class="wrap">
+
+  <!-- Notification sent from Finance Tab to Customer App -->
+  <div id="customerAlertBox" class="notif-banner">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div><strong>🔔 Customer App Notification:</strong> <span id="customerAlertText"></span></div>
+      <button class="sec sm" onclick="document.getElementById('customerAlertBox').style.display='none'">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       1. CUSTOMER APP & CUSTOMER ORDER (Available Dates Only, No Credit Option)
+  ========================================================== -->
+  <div id="customer-app" class="panel active">
+    <div class="card">
+      <h2>🛍️ Customer Order (අපිට Print කරන්න පුළුවන් දවස් පමණි)</h2>
+      <p style="font-size:12px; color:var(--muted); margin-top:0;">
+        උදාහරණය: Customer නම සහ Paper වර්ගය දමා, <strong>Available Print Date</strong> dropdown එකෙන් අපිට print කරන්න පුළුවන් දවස තෝරන්න (ඉරිදා/Sunday හැර ඉදිරි දින පෙන්වයි).
+      </p>
+
+      <div class="g3">
+        <div>
+          <label>Customer Name</label>
+          <input id="custNameInput" placeholder="උදා: Kasun" />
+        </div>
+        <div>
+          <label>Marketing Rep (Optional)</label>
+          <input id="custRepInput" placeholder="උදා: Nimal" />
+        </div>
+        <div>
+          <label>Payment Method (BD / COD පමණි)</label>
+          <select id="custPayInput">
+            <option value="BD">Bank Deposit (BD - Priority)</option>
+            <option value="COD">Cash on Delivery (COD)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="g4" style="margin-top:12px;">
+        <div>
+          <label>Paper Type</label>
+          <select id="custPaperInput">
+            <option value="A4 B&W">A4 B&W</option>
+            <option value="A4 Colour">A4 Colour</option>
+            <option value="Photo 135gsm">Photo 135gsm</option>
+            <option value="Photo 230gsm">Photo 230gsm</option>
+            <option value="A3 B&W">A3 B&W</option>
+          </select>
+        </div>
+        <div>
+          <label>Sheets Count</label>
+          <input type="number" id="custSheetsInput" value="100" min="1" />
+        </div>
+        <div>
+          <label>Rate per Sheet (LKR)</label>
+          <input type="number" id="custRateInput" value="10" min="0" step="0.5" />
+        </div>
+        <div>
+          <label>Available Print Date (අපිට පුළුවන් දවස)</label>
+          <select id="custAvailableDateSelect"></select>
+        </div>
+      </div>
+
+      <button style="margin-top:12px;" onclick="addCustomerOrder()">➕ Add Customer Order</button>
+
+      <table>
+        <thead>
+          <tr><th>Order ID</th><th>Customer</th><th>Paper</th><th>Sheets</th><th>Print Date</th><th>Total</th><th>Payment</th></tr>
+        </thead>
+        <tbody id="customerOrdersBody"></tbody>
+      </table>
+    </div>
+
+    <!-- AI-Style Visual Showcase -->
+    <div class="card">
+      <h2>🎨 AI-Style Print & Studio Showcase (GUI Gallery)</h2>
+      <div class="g3">
+        <div class="ai-photo-card">
+          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
+            <rect x="15" y="15" width="210" height="90" rx="10" fill="#172554"/>
+            <rect x="30" y="30" width="80" height="60" rx="6" fill="#f59e0b"/>
+            <rect x="122" y="34" width="88" height="12" rx="4" fill="#38bdf8"/>
+            <rect x="122" y="54" width="66" height="10" rx="4" fill="#a78bfa"/>
+            <rect x="122" y="72" width="76" height="10" rx="4" fill="#34d399"/>
+          </svg>
+          <strong style="font-size:13px;">High-Speed Tute & Cover Studio</strong>
+          <span style="font-size:11px; color:var(--muted);">AI-styled visual layout for print & binding</span>
+        </div>
+
+        <div class="ai-photo-card">
+          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
+            <rect x="15" y="15" width="210" height="90" rx="10" fill="#1e1b4b"/>
+            <circle cx="70" cy="60" r="26" fill="#8b5cf6"/>
+            <path d="M58 60 L67 69 L83 52" stroke="#fff" stroke-width="4" fill="none"/>
+            <rect x="112" y="36" width="96" height="12" rx="4" fill="#f59e0b"/>
+            <rect x="112" y="56" width="80" height="10" rx="4" fill="#94a3b8"/>
+          </svg>
+          <strong style="font-size:13px;">Smart QR Stock & Wastage Check</strong>
+          <span style="font-size:11px; color:var(--muted);">Scan items & reward low wastage with treats</span>
+        </div>
+
+        <div class="ai-photo-card">
+          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
+            <rect x="15" y="15" width="210" height="90" rx="10" fill="#064e3b"/>
+            <rect x="32" y="68" width="24" height="22" rx="3" fill="#34d399"/>
+            <rect x="66" y="52" width="24" height="38" rx="3" fill="#38bdf8"/>
+            <rect x="100" y="36" width="24" height="54" rx="3" fill="#f59e0b"/>
+            <rect x="138" y="40" width="70" height="12" rx="4" fill="#ecfdf5"/>
+            <rect x="138" y="60" width="54" height="10" rx="4" fill="#a7f3d0"/>
+          </svg>
+          <strong style="font-size:13px;">Paper Analytics & Finance Sync</strong>
+          <span style="font-size:11px; color:var(--muted);">Daily/Monthly charts + offline C++ JSON sync</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       2. QR / BARCODE INVENTORY (BY CATEGORY), SCAN, WASTAGE & EXPENSES
+  ========================================================== -->
+  <div id="inventory-prod" class="panel">
+    <div class="g2">
+      <div class="card">
+        <h2>📥 Add Stock by Category (QR / Barcode)</h2>
+        <div class="g2">
+          <div>
+            <label>QR / Barcode Value</label>
+            <input id="invCodeInput" placeholder="උදා: QR-P230-01" />
+          </div>
+          <div>
+            <label>Item Category (වර්ගය)</label>
+            <select id="invCategoryInput">
+              <option value="Paper">Paper</option>
+              <option value="Photo Paper">Photo Paper</option>
+              <option value="Ink / Toner">Ink / Toner</option>
+              <option value="Machine Part">Machine Part</option>
+              <option value="Binding / Other">Binding / Other</option>
+            </select>
+          </div>
+          <div>
+            <label>Item Name</label>
+            <input id="invNameInput" placeholder="උදා: Photo Glossy 230gsm" />
+          </div>
+          <div>
+            <label>Qty & Unit Cost (LKR)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="invQtyInput" value="200" min="1" placeholder="Qty" />
+              <input type="number" id="invCostInput" value="40" min="0" step="0.5" placeholder="Cost" />
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+          <button onclick="addInventoryItem()">➕ Add Inventory Item</button>
+          <button class="sec" onclick="generateQR()">🏷️ Generate QR Label</button>
+        </div>
+        <div id="qrLabelOutput"></div>
+      </div>
+
+      <div class="card">
+        <h2>📷 Scan Item for Production (දැන් Print කරන්න ගන්න Item එක)</h2>
+        <div class="g2">
+          <div>
+            <label>Scan / Enter QR or Barcode</label>
+            <input id="scanCodeInput" placeholder="Scan or pick code..." list="invCodesList" />
+            <datalist id="invCodesList"></datalist>
+          </div>
+          <div>
+            <label>Qty Taken to Print</label>
+            <input type="number" id="scanQtyInput" value="25" min="1" />
+          </div>
+        </div>
+        <button class="ok" style="margin-top:10px;" onclick="scanItemForPrint()">🔍 Scan & Start Printing</button>
+        <div class="box" style="margin-top:10px; font-size:13px;">
+          <strong>Currently Printing Item:</strong> <span id="activePrintItemLabel">None scanned yet</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📦 Inventory Stock (Grouped by Category)</h2>
+      <table>
+        <thead>
+          <tr><th>QR / Barcode</th><th>Category</th><th>Item Name</th><th>Stock Qty</th><th>Unit Cost</th></tr>
+        </thead>
+        <tbody id="inventoryTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <h2>🗑️ Wastage Photo + Biscuit / Ice Palam Treat</h2>
+        <div class="g2">
+          <div><label>Wastage Qty</label><input type="number" id="wasteQtyInput" value="2" min="0" /></div>
+          <div><label>Reason</label><input id="wasteReasonInput" placeholder="Misprint / Jam" /></div>
+        </div>
+        <div style="margin-top:10px;"><label>Wastage Photo</label><input type="file" id="wastePhotoFile" accept="image/*" /></div>
+        <button style="margin-top:10px;" onclick="addWastageRecord()">➕ Add Wastage Record</button>
+        <div id="treatBanner" class="box" style="margin-top:10px; font-size:13px;"></div>
+        <table>
+          <thead><tr><th>Photo</th><th>Reason</th><th>Qty</th><th>Date</th></tr></thead>
+          <tbody id="wastageTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>🧾 Production Daily Other Expenses (with Photo)</h2>
+        <div class="g2">
+          <div><label>Expense Title</label><input id="otherExpTitleInput" placeholder="Tea / Small repair" /></div>
+          <div><label>Amount (LKR)</label><input type="number" id="otherExpAmtInput" value="500" min="1" /></div>
+        </div>
+        <div style="margin-top:10px;"><label>Bill / Item Photo</label><input type="file" id="otherExpPhotoFile" accept="image/*" /></div>
+        <button style="margin-top:10px;" onclick="addOtherExpense()">➕ Add Daily Expense</button>
+        <table>
+          <thead><tr><th>Photo</th><th>Expense</th><th>Amount</th><th>Date</th></tr></thead>
+          <tbody id="otherExpTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       3. MARKETING TAB
+  ========================================================== -->
+  <div id="marketing-tab" class="panel">
+    <div class="card">
+      <h2>📣 Marketing Receipt Submission & Monthly Earnings</h2>
+      <div class="g4">
+        <div><label>Officer Name</label><input id="mktOfficerInput" value="Nimal" onchange="renderAll()" /></div>
+        <div><label>Customer Name</label><input id="mktCustNameInput" placeholder="Kasun" /></div>
+        <div><label>Sale Amount (LKR)</label><input type="number" id="mktSaleInput" value="10000" min="1" /></div>
+        <div><label>Receipt / Slip Ref</label><input id="mktSlipInput" placeholder="Slip #001" /></div>
+      </div>
+      <button style="margin-top:10px;" onclick="addMarketingReceipt()">➕ Add / Submit Receipt</button>
+
+      <div class="g2" style="margin-top:12px;">
+        <div class="box">
+          <div style="font-size:12px; color:var(--muted);">Approved Monthly Earnings</div>
+          <div class="kpi" id="mktApprovedSum">LKR 0.00</div>
+        </div>
+        <div class="box">
+          <div style="font-size:12px; color:var(--muted);">Pending Receipts</div>
+          <div class="kpi" id="mktPendingNum">0</div>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Date</th><th>Officer</th><th>Customer</th><th>Sale</th><th>Commission</th><th>Status</th></tr></thead>
+        <tbody id="mktTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       4. FINANCE & NAYA TAB (Only place for Credit/Naya & Sir App Notification)
+  ========================================================== -->
+  <div id="finance-tab" class="panel">
+    <div class="card">
+      <h2>💳 Finance Naya Management & Sir App Notification</h2>
+      <p style="font-size:12px; color:var(--muted); margin-top:0;">
+        හදිස්සියේ ණයට දුන්නොත් මෙතනින් ණය record එක add කරලා <strong>Notify Customer App</strong> button එකෙන් notification යවන්න පුළුවන්.
+      </p>
+      <div class="g4">
+        <div>
+          <label>Naya Type</label>
+          <select id="nayaTypeInput">
+            <option value="SIR_OWES_US">Sir Apita Wena Naya</option>
+            <option value="WE_OWE_SUPPLIER">Api Badu Ganna Ayata Wena Naya</option>
+          </select>
+        </div>
+        <div><label>Name</label><input id="nayaPartyInput" placeholder="Kasun / Paper Supplier" /></div>
+        <div><label>Amount (LKR)</label><input type="number" id="nayaAmtInput" value="3500" min="1" /></div>
+        <div><label>Due Date</label><input type="date" id="nayaDueInput" /></div>
+      </div>
+      <button style="margin-top:10px;" onclick="addNaya()">➕ Add Naya Record</button>
+
+      <div class="g2" style="margin-top:12px;">
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Sirla Apita Wena Naya</div><div class="kpi" id="sirNayaTotal">LKR 0.00</div></div>
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Api Badu Ganna Ayata Wena Naya</div><div class="kpi" id="supNayaTotal" style="color:var(--bad);">LKR 0.00</div></div>
+      </div>
+
+      <table>
+        <thead><tr><th>Type</th><th>Name</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="nayaTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       5. OWNER HQ TAB (Staff Add, Receipt Approvals, Salary, Charts & Red App Reset)
+  ========================================================== -->
+  <div id="owner-tab" class="panel">
+    <div class="card">
+      <h2>👥 Add Staff Member (කාර්ය මණ්ඩලය එකතු කිරීම)</h2>
+      <div class="g4">
+        <div><label>Staff Name</label><input id="staffNameInput" placeholder="උදා: Saman" /></div>
+        <div>
+          <label>Department</label>
+          <select id="staffDeptInput">
+            <option value="Production">Production</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Finance">Finance</option>
+          </select>
+        </div>
+        <div><label>Base Salary (LKR)</label><input type="number" id="staffSalaryInput" value="35000" min="0" /></div>
+        <div style="display:flex; align-items:flex-end;">
+          <button style="width:100%;" onclick="addStaffMember()">➕ Add Staff</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Department</th><th>Base Salary</th></tr></thead>
+        <tbody id="staffTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>✅ Marketing Receipts Approval (Accept / Reject)</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Officer</th><th>Customer & Ref</th><th>Sale</th><th>Commission</th><th>Action</th></tr></thead>
+        <tbody id="approvalTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <h2>💼 Salary Bonus & Treat Settings (වෙනස් කළ හැකි අගයන්)</h2>
+        <div class="g2">
+          <div><label>Commission (%)</label><input type="number" id="cfgComm" value="5" min="0" onchange="saveConfig()" /></div>
+          <div><label>Bonus per Order (LKR)</label><input type="number" id="cfgBonus" value="500" min="0" onchange="saveConfig()" /></div>
+          <div><label>Max Wastage Limit for Treat</label><input type="number" id="cfgWasteLimit" value="5" min="0" onchange="saveConfig()" /></div>
+          <div><label>Staff Name for Salary Calc</label><input id="cfgSalStaff" value="Nimal" oninput="renderSalaryCalc()" /></div>
+        </div>
+        <div id="salaryCalcBox" class="box" style="margin-top:10px; font-size:13px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>📊 Daily & Monthly Paper Type Chart</h2>
+        <div style="margin-bottom:10px;">
+          <label>Chart Period</label>
+          <select id="chartPeriodSelect" onchange="renderPaperChart()">
+            <option value="daily">Daily (Today)</option>
+            <option value="monthly">Monthly (This Month)</option>
+          </select>
+        </div>
+        <div id="paperChartBox"></div>
+      </div>
+    </div>
+
+    <!-- RED APP RESET BUTTON WITH PASSWORD + ARE YOU SURE -->
+    <div class="card" style="border-color: var(--bad);">
+      <h2 style="color:#fca5a5;">⚠️ Danger Zone — App Reset</h2>
+      <p style="font-size:12px; color:var(--muted); margin-top:0;">
+        සියලුම local data reset කිරීමට පහළ රතු පාට <strong>App Reset</strong> button එක click කර Password (`1234`) සහ <strong>Are you sure?</strong> confirm කරන්න.
+      </p>
+      <button class="bad" onclick="triggerAppReset()">🛑 App Reset</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const CLOUD_WEBHOOK_URL = "";
+  const OWNER_RESET_PIN = "1234";
+  const STORAGE_KEY = "cosmic_printers_erp_v5";
+
+  const defaultState = {
+    config: { commPct: 5, orderBonus: 500, maxWasteLimit: 5 },
+    activePrintingItem: "None scanned yet",
+    staff: [
+      { name: "Nimal", dept: "Marketing", salary: 35000 },
+      { name: "Saman", dept: "Production", salary: 38000 }
+    ],
+    inventory: [
+      { code: "QR-A4-80-01", category: "Paper", name: "A4 80gsm Copy Paper", qty: 2000, cost: 5 },
+      { code: "QR-P135-01", category: "Photo Paper", name: "Photo 135gsm", qty: 300, cost: 30 }
+    ],
+    orders: [],
+    wastage: [],
+    otherExpenses: [],
+    receipts: [],
+    nayas: []
+  };
+
+  let state = loadState();
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? { ...structuredClone(defaultState), ...JSON.parse(raw) } : structuredClone(defaultState);
+    } catch {
+      return structuredClone(defaultState);
+    }
+  }
+
+  function saveState(eventType = "SYNC", payload = {}) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (CLOUD_WEBHOOK_URL && navigator.onLine) {
+      document.getElementById("cloudBadge").textContent = "Cloud: Syncing...";
+      fetch(CLOUD_WEBHOOK_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventType, payload })
+      }).then(() => {
+        document.getElementById("cloudBadge").textContent = "Cloud: Synced";
+      }).catch(() => {
+        document.getElementById("cloudBadge").textContent = "Cloud: Offline";
+      });
+    }
+  }
+
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function monthISO() { return new Date().toISOString().slice(0, 7); }
+
+  function populateAvailableDates() {
+    const sel = document.getElementById("custAvailableDateSelect");
+    const options = [];
+    const cur = new Date();
+    for (let i = 0; i < 14 && options.length < 8; i++) {
+      const d = new Date(cur);
+      d.setDate(cur.getDate() + i);
+      // Skip Sunday (0) as non-printing day example
+      if (d.getDay() !== 0) {
+        const iso = d.toISOString().slice(0, 10);
+        const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + ` (${iso})`;
+        options.push(`<option value="${iso}">${label}</option>`);
+      }
+    }
+    sel.innerHTML = options.join("");
+  }
+
+  function openTab(tabId, btn) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.getElementById(tabId).classList.add("active");
+    if (btn) btn.classList.add("active");
+    renderAll();
+  }
+
+  function applyDeptUrl() {
+    const dept = (new URLSearchParams(window.location.search).get("dept") || "").toLowerCase();
+    const map = {
+      customer: "customer-app",
+      marketing: "marketing-tab",
+      production: "inventory-prod",
+      finance: "finance-tab",
+      owner: "owner-tab"
+    };
+    if (!map[dept]) return;
+    document.getElementById("deptSub").textContent = `Active Department: ${dept.toUpperCase()}`;
+    document.querySelectorAll(".tab").forEach(t => {
+      if (dept !== "owner" && t.getAttribute("data-tab") === "owner-tab") t.style.display = "none";
+    });
+    const targetBtn = document.querySelector(`.tab[data-tab="${map[dept]}"]`);
+    openTab(map[dept], targetBtn);
+  }
+
+  function readPhoto(fileInput, cb) {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return cb("");
+    const r = new FileReader();
+    r.onload = () => cb(r.result);
+    r.readAsDataURL(f);
+  }
+
+  function generateQR() {
+    const code = (document.getElementById("invCodeInput").value || "").trim() || "QR-ITEM";
+    const cat = document.getElementById("invCategoryInput").value;
+    const name = (document.getElementById("invNameInput").value || "").trim() || cat;
+    const src = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(code)}`;
+    document.getElementById("qrLabelOutput").innerHTML = `
+      <div class="qr-card">
+        <img src="${src}" width="110" height="110" alt="QR ${code}" />
+        <strong style="font-size:12px;">${code}</strong>
+        <span style="font-size:11px;">${cat} — ${name}</span>
+      </div>`;
+  }
+
+  function addCustomerOrder() {
+    const customer = document.getElementById("custNameInput").value.trim() || "Customer";
+    const rep = document.getElementById("custRepInput").value.trim() || "Direct";
+    const payMethod = document.getElementById("custPayInput").value;
+    const paperType = document.getElementById("custPaperInput").value;
+    const sheets = Math.max(1, parseInt(document.getElementById("custSheetsInput").value || "1", 10));
+    const rate = Math.max(0, parseFloat(document.getElementById("custRateInput").value || "0"));
+    const printDate = document.getElementById("custAvailableDateSelect").value || todayISO();
+
+    const ord = {
+      id: "ORD-" + Math.floor(1000 + Math.random() * 9000),
+      date: todayISO(),
+      printDate,
+      customer,
+      rep,
+      payMethod,
+      paperType,
+      sheets,
+      total: sheets * rate
+    };
+    state.orders.unshift(ord);
+    saveState("CUSTOMER_ORDER", ord);
+    renderAll();
+  }
+
+  function addInventoryItem() {
+    const code = document.getElementById("invCodeInput").value.trim();
+    const category = document.getElementById("invCategoryInput").value;
+    const name = document.getElementById("invNameInput").value.trim();
+    const qty = Math.max(1, parseInt(document.getElementById("invQtyInput").value || "1", 10));
+    const cost = Math.max(0, parseFloat(document.getElementById("invCostInput").value || "0"));
+    if (!code || !name) return alert("QR/Barcode සහ Item Name ඇතුළත් කරන්න.");
+
+    const existing = state.inventory.find(i => i.code.toLowerCase() === code.toLowerCase());
+    if (existing) {
+      existing.category = category;
+      existing.name = name;
+      existing.qty += qty;
+      existing.cost = cost;
+    } else {
+      state.inventory.push({ code, category, name, qty, cost });
+    }
+    document.getElementById("invCodeInput").value = "";
+    document.getElementById("invNameInput").value = "";
+    saveState("ADD_INVENTORY", { code, category, name, qty });
+    renderAll();
+  }
+
+  function scanItemForPrint() {
+    const code = document.getElementById("scanCodeInput").value.trim();
+    const take = Math.max(1, parseInt(document.getElementById("scanQtyInput").value || "1", 10));
+    const item = state.inventory.find(i => i.code.toLowerCase() === code.toLowerCase());
+    if (!item) return alert("මෙම QR/Barcode code එක Inventory එකේ නැත.");
+    if (item.qty < take) return alert("Stock ප්‍රමාණවත් නැත.");
+    item.qty -= take;
+    state.activePrintingItem = `[${item.category}] ${item.name} (${item.code}) — Taken: ${take}`;
+    document.getElementById("scanCodeInput").value = "";
+    saveState("SCAN_PRINT", { code, take });
+    renderAll();
+  }
+
+  function addWastageRecord() {
+    const qty = Math.max(0, parseInt(document.getElementById("wasteQtyInput").value || "0", 10));
+    const reason = document.getElementById("wasteReasonInput").value.trim() || "Wastage";
+    const fileInp = document.getElementById("wastePhotoFile");
+    readPhoto(fileInp, photo => {
+      state.wastage.unshift({ date: todayISO(), qty, reason, photo });
+      fileInp.value = "";
+      document.getElementById("wasteReasonInput").value = "";
+      saveState("WASTAGE", { qty, reason });
+      renderAll();
+    });
+  }
+
+  function addOtherExpense() {
+    const title = document.getElementById("otherExpTitleInput").value.trim() || "Daily Expense";
+    const amt = Math.max(0, parseFloat(document.getElementById("otherExpAmtInput").value || "0"));
+    const fileInp = document.getElementById("otherExpPhotoFile");
+    readPhoto(fileInp, photo => {
+      state.otherExpenses.unshift({ date: todayISO(), title, amt, photo });
+      fileInp.value = "";
+      document.getElementById("otherExpTitleInput").value = "";
+      saveState("OTHER_EXPENSE", { title, amt });
+      renderAll();
+    });
+  }
+
+  function addMarketingReceipt() {
+    const officer = document.getElementById("mktOfficerInput").value.trim() || "Marketing";
+    const customer = document.getElementById("mktCustNameInput").value.trim() || "Customer";
+    const sale = Math.max(0, parseFloat(document.getElementById("mktSaleInput").value || "0"));
+    const slipRef = document.getElementById("mktSlipInput").value.trim() || "-";
+    const commission = (sale * state.config.commPct) / 100;
+    const rec = {
+      id: "RCP-" + Math.floor(1000 + Math.random() * 9000),
+      date: todayISO(),
+      month: monthISO(),
+      officer,
+      customer,
+      sale,
+      commission,
+      slipRef,
+      status: "PENDING"
+    };
+    state.receipts.unshift(rec);
+    document.getElementById("mktCustNameInput").value = "";
+    document.getElementById("mktSlipInput").value = "";
+    saveState("MKT_RECEIPT", rec);
+    renderAll();
+  }
+
+  function decideReceipt(id, accepted) {
+    const r = state.receipts.find(x => x.id === id);
+    if (!r) return;
+    r.status = accepted ? "ACCEPTED" : "REJECTED";
+    saveState("RECEIPT_DECISION", { id, status: r.status });
+    renderAll();
+  }
+
+  function addNaya() {
+    const type = document.getElementById("nayaTypeInput").value;
+    const party = document.getElementById("nayaPartyInput").value.trim() || "Party";
+    const amount = Math.max(0, parseFloat(document.getElementById("nayaAmtInput").value || "0"));
+    const dueDate = document.getElementById("nayaDueInput").value || todayISO();
+    state.nayas.unshift({
+      id: "NY-" + Math.floor(1000 + Math.random() * 9000),
+      type,
+      party,
+      amount,
+      dueDate,
+      settled: false
+    });
+    document.getElementById("nayaPartyInput").value = "";
+    saveState("NAYA_ADD", { type, party, amount });
+    renderAll();
+  }
+
+  function notifyCustomerFromFinance(id) {
+    const n = state.nayas.find(x => x.id === id);
+    if (!n) return;
+    document.getElementById("customerAlertText").textContent =
+      ` ${n.party} — හිඟ ණය මුදල LKR ${n.amount.toFixed(2)} (Due: ${n.dueDate}) පියවීමට මතක් කිරීමකි.`;
+    document.getElementById("customerAlertBox").style.display = "block";
+    openTab("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
+  }
+
+  function toggleNayaPaid(id) {
+    const n = state.nayas.find(x => x.id === id);
+    if (!n) return;
+    n.settled = !n.settled;
+    saveState("NAYA_PAID", { id, settled: n.settled });
+    renderAll();
+  }
+
+  function addStaffMember() {
+    const name = document.getElementById("staffNameInput").value.trim();
+    const dept = document.getElementById("staffDeptInput").value;
+    const salary = Math.max(0, parseFloat(document.getElementById("staffSalaryInput").value || "0"));
+    if (!name) return alert("Staff Name ඇතුළත් කරන්න.");
+    state.staff.push({ name, dept, salary });
+    document.getElementById("staffNameInput").value = "";
+    saveState("ADD_STAFF", { name, dept, salary });
+    renderAll();
+  }
+
+  function saveConfig() {
+    state.config.commPct = Math.max(0, parseFloat(document.getElementById("cfgComm").value || "0"));
+    state.config.orderBonus = Math.max(0, parseFloat(document.getElementById("cfgBonus").value || "0"));
+    state.config.maxWasteLimit = Math.max(0, parseInt(document.getElementById("cfgWasteLimit").value || "0", 10));
+    saveState("SAVE_CONFIG", state.config);
+    renderAll();
+  }
+
+  function renderSalaryCalc() {
+    const staffName = (document.getElementById("cfgSalStaff").value || "").trim().toLowerCase();
+    const member = state.staff.find(s => s.name.toLowerCase().includes(staffName));
+    const base = member ? member.salary : 35000;
+    const earnedComm = state.receipts
+      .filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!staffName || r.officer.toLowerCase().includes(staffName)))
+      .reduce((s, r) => s + r.commission, 0);
+    const ordCnt = state.orders.filter(o => !staffName || o.rep.toLowerCase().includes(staffName)).length;
+    const bonus = ordCnt * state.config.orderBonus;
+    document.getElementById("salaryCalcBox").innerHTML =
+      `Base: <strong>LKR ${base.toFixed(2)}</strong> | Bonus (${ordCnt} orders): <strong>LKR ${bonus.toFixed(2)}</strong> | Approved Comm: <strong>LKR ${earnedComm.toFixed(2)}</strong><br>` +
+      `Total Salary: <strong style="color:var(--ok);">LKR ${(base + bonus + earnedComm).toFixed(2)}</strong>`;
+  }
+
+  function renderPaperChart() {
+    const period = document.getElementById("chartPeriodSelect").value;
+    const list = state.orders.filter(o => period === "daily" ? o.date === todayISO() : o.date.startsWith(monthISO()));
+    const sums = {};
+    list.forEach(o => { sums[o.paperType] = (sums[o.paperType] || 0) + o.sheets; });
+    const entries = Object.entries(sums);
+    const maxS = Math.max(1, ...entries.map(([, v]) => v));
+    document.getElementById("paperChartBox").innerHTML = entries.length
+      ? entries.map(([k, v]) => `
+          <div class="bar-row">
+            <div class="bar-top"><span>${k}</span><strong>${v} sheets</strong></div>
+            <div class="bar-bg"><div class="bar-fill" style="width:${Math.round((v / maxS) * 100)}%"></div></div>
+          </div>`).join("")
+      : `<div style="font-size:12px; color:var(--muted);">මෙම කාලයට print වූ paper records නැත.</div>`;
+  }
+
+  function triggerAppReset() {
+    const pin = prompt("Owner Password ඇතුළත් කරන්න:");
+    if (pin !== OWNER_RESET_PIN) return alert("වැරදි Password එකකි! Reset අවලංගු කරන ලදී.");
+    const sure = confirm("Are you sure? සියලුම data මකා App එක Reset කරන්නද?");
+    if (!sure) return;
+    localStorage.removeItem(STORAGE_KEY);
+    state = structuredClone(defaultState);
+    saveState("APP_RESET");
+    renderAll();
+    alert("App Reset සම්පූර්ණයි!");
+  }
+
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "cosmic_sync_data.json"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(ev) {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try { state = { ...structuredClone(defaultState), ...JSON.parse(r.result) }; saveState(); renderAll(); }
+      catch { alert("Invalid JSON file."); }
+    };
+    r.readAsText(f);
+  }
+
+  function renderAll() {
+    document.getElementById("cfgComm").value = state.config.commPct;
+    document.getElementById("cfgBonus").value = state.config.orderBonus;
+    document.getElementById("cfgWasteLimit").value = state.config.maxWasteLimit;
+    document.getElementById("activePrintItemLabel").textContent = state.activePrintingItem;
+
+    document.getElementById("customerOrdersBody").innerHTML = state.orders
+      .map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.paperType}</td><td>${o.sheets}</td><td>${o.printDate}</td><td>LKR ${o.total.toFixed(2)}</td><td><span class="pill">${o.payMethod}</span></td></tr>`).join("");
+
+    document.getElementById("invCodesList").innerHTML = state.inventory
+      .map(i => `<option value="${i.code}">${i.category} - ${i.name}</option>`).join("");
+
+    const sortedInv = [...state.inventory].sort((a, b) => a.category.localeCompare(b.category));
+    document.getElementById("inventoryTableBody").innerHTML = sortedInv
+      .map(i => `<tr><td><span class="pill">${i.code}</span></td><td><strong>${i.category}</strong></td><td>${i.name}</td><td>${i.qty}</td><td>LKR ${i.cost.toFixed(2)}</td></tr>`).join("");
+
+    const todayW = state.wastage.filter(w => w.date === todayISO()).reduce((s, w) => s + w.qty, 0);
+    document.getElementById("treatBanner").innerHTML = todayW <= state.config.maxWasteLimit
+      ? `🍪🍨 <strong>Treat Unlocked!</strong> Today wastage (${todayW}) <= Limit (${state.config.maxWasteLimit}) -> Biscuit & Ice Palam treat for Production!`
+      : `⚠️ <strong>Treat Not Unlocked:</strong> Today wastage (${todayW}) > Limit (${state.config.maxWasteLimit}).`;
+
+    document.getElementById("wastageTableBody").innerHTML = state.wastage
+      .map(w => `<tr><td>${w.photo ? `<img class="thumb" src="${w.photo}"/>` : "-"}</td><td>${w.reason}</td><td>${w.qty}</td><td>${w.date}</td></tr>`).join("");
+
+    document.getElementById("otherExpTableBody").innerHTML = state.otherExpenses
+      .map(e => `<tr><td>${e.photo ? `<img class="thumb" src="${e.photo}"/>` : "-"}</td><td>${e.title}</td><td>LKR ${e.amt.toFixed(2)}</td><td>${e.date}</td></tr>`).join("");
+
+    const mktFilter = (document.getElementById("mktOfficerInput").value || "").trim().toLowerCase();
+    const approved = state.receipts
+      .filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!mktFilter || r.officer.toLowerCase().includes(mktFilter)))
+      .reduce((s, r) => s + r.commission, 0);
+    const pending = state.receipts.filter(r => r.status === "PENDING").length;
+    document.getElementById("mktApprovedSum").textContent = `LKR ${approved.toFixed(2)}`;
+    document.getElementById("mktPendingNum").textContent = String(pending);
+
+    document.getElementById("mktTableBody").innerHTML = state.receipts
+      .map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer}</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><span class="pill">${r.status}</span></td></tr>`).join("");
+
+    document.getElementById("approvalTableBody").innerHTML = state.receipts
+      .filter(r => r.status === "PENDING")
+      .map(r => `<tr>
+        <td>${r.date}</td><td>${r.officer}</td><td>${r.customer} (${r.slipRef})</td>
+        <td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td>
+        <td>
+          <button class="ok sm" onclick="decideReceipt('${r.id}',true)">Accept</button>
+          <button class="bad sm" onclick="decideReceipt('${r.id}',false)">Reject</button>
+        </td>
+      </tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted);">Pending receipts නැත.</td></tr>`;
+
+    const sirNaya = state.nayas.filter(n => n.type === "SIR_OWES_US" && !n.settled).reduce((s, n) => s + n.amount, 0);
+    const supNaya = state.nayas.filter(n => n.type === "WE_OWE_SUPPLIER" && !n.settled).reduce((s, n) => s + n.amount, 0);
+    document.getElementById("sirNayaTotal").textContent = `LKR ${sirNaya.toFixed(2)}`;
+    document.getElementById("supNayaTotal").textContent = `LKR ${supNaya.toFixed(2)}`;
+
+    document.getElementById("nayaTableBody").innerHTML = state.nayas
+      .map(n => `<tr>
+        <td><span class="pill">${n.type === "SIR_OWES_US" ? "Sir -> Us" : "Us -> Supplier"}</span></td>
+        <td>${n.party}</td><td>LKR ${n.amount.toFixed(2)}</td><td>${n.dueDate}</td>
+        <td>${n.settled ? "Settled" : "Unpaid"}</td>
+        <td>
+          ${n.type === "SIR_OWES_US" && !n.settled ? `<button class="sec sm" onclick="notifyCustomerFromFinance('${n.id}')">🔔 Notify Customer App</button> ` : ""}
+          <button class="ok sm" onclick="toggleNayaPaid('${n.id}')">${n.settled ? "Reopen" : "Mark Paid"}</button>
+        </td>
+      </tr>`).join("");
+
+    document.getElementById("staffTableBody").innerHTML = state.staff
+      .map(s => `<tr><td><strong>${s.name}</strong></td><td><span class="pill">${s.dept}</span></td><td>LKR ${s.salary.toFixed(2)}</td></tr>`).join("");
+
+    renderSalaryCalc();
+    renderPaperChart();
+  }
+
+  populateAvailableDates();
+  applyDeptUrl();
+  renderAll();
+</script>
+</body>
+</html>
