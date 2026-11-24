@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cosmic Printers ERP | 3-Strike Lock & Password Manager</title>
+  <title>Cosmic Printers ERP | Customer & Department Portal</title>
   <style>
     :root {
       --bg: #070d19;
@@ -115,6 +115,10 @@
       max-width: 400px; width: 100%; background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 20px; text-align: center;
     }
+    .customer-only-mode #tabsBar,
+    .customer-only-mode #staffHeaderTools {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -159,11 +163,11 @@
       <circle cx="42" cy="24" r="3" fill="#10b981"/>
     </svg>
     <div class="brand-title">
-      COSMIC PRINTERS ERP
-      <span class="brand-sub" id="deptSub">Protected Department Portal • 3-Strike 24h Lock</span>
+      COSMIC PRINTERS
+      <span class="brand-sub" id="deptSub">Customer Order Portal</span>
     </div>
   </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+  <div id="staffHeaderTools" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <button class="sec sm" onclick="lockCurrentSession()">🔒 Lock</button>
     <span class="pill" id="cloudBadge">Cloud: Ready</span>
     <button class="sec sm" onclick="exportJSON()">⬇️ JSON Export</button>
@@ -186,7 +190,7 @@
 
   <div id="customerAlertBox" class="notif-banner">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <div><strong>🔔 Customer App Notification:</strong> <span id="customerAlertText"></span></div>
+      <div><strong>🔔 Notification:</strong> <span id="customerAlertText"></span></div>
       <button class="sec sm" onclick="document.getElementById('customerAlertBox').style.display='none'">Dismiss</button>
     </div>
   </div>
@@ -221,7 +225,7 @@
         <div><label>Rate per Sheet (LKR)</label><input type="number" id="custRateInput" value="10" min="0" step="0.5" /></div>
         <div><label>Available Print Date</label><select id="custAvailableDateSelect"></select></div>
       </div>
-      <button style="margin-top:12px;" onclick="addCustomerOrder()">➕ Add Customer Order</button>
+      <button style="margin-top:12px;" onclick="addCustomerOrder()">➕ Submit Customer Order</button>
       <table>
         <thead><tr><th>Order ID</th><th>Customer</th><th>Paper</th><th>Sheets</th><th>Print Date</th><th>Total</th><th>Payment</th></tr></thead>
         <tbody id="customerOrdersBody"></tbody>
@@ -360,7 +364,6 @@
   <!-- 5. OWNER HQ TAB -->
   <div id="owner-tab" class="panel">
 
-    <!-- Change Department Passwords / PINs & Manage Lockouts -->
     <div class="card">
       <h2>🔐 Change Department Passwords / PINs & Lock Status</h2>
       <p style="font-size:12px; color:var(--muted); margin-top:0;">
@@ -437,8 +440,8 @@
 
 <script>
   const CLOUD_WEBHOOK_URL = "";
-  const STORAGE_KEY = "cosmic_printers_erp_v7";
-  const LOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+  const STORAGE_KEY = "cosmic_printers_erp_v8";
+  const LOCK_DURATION_MS = 24 * 60 * 60 * 1000;
 
   let pendingTabTarget = null;
   let unlockedTabs = new Set(["customer-app"]);
@@ -451,18 +454,8 @@
       "owner-tab": "9999"
     },
     security: {
-      failedAttempts: {
-        "inventory-prod": 0,
-        "marketing-tab": 0,
-        "finance-tab": 0,
-        "owner-tab": 0
-      },
-      lockedUntil: {
-        "inventory-prod": 0,
-        "marketing-tab": 0,
-        "finance-tab": 0,
-        "owner-tab": 0
-      }
+      failedAttempts: { "inventory-prod": 0, "marketing-tab": 0, "finance-tab": 0, "owner-tab": 0 },
+      lockedUntil: { "inventory-prod": 0, "marketing-tab": 0, "finance-tab": 0, "owner-tab": 0 }
     },
     config: { commPct: 5, orderBonus: 500, maxWasteLimit: 5 },
     activePrintingItem: "None scanned yet",
@@ -493,9 +486,7 @@
           lockedUntil: { ...structuredClone(defaultState.security.lockedUntil), ...((parsed.security && parsed.security.lockedUntil) || {}) }
         }
       };
-    } catch {
-      return structuredClone(defaultState);
-    }
+    } catch { return structuredClone(defaultState); }
   }
 
   function saveState(eventType = "SYNC", payload = {}) {
@@ -514,11 +505,17 @@
   function todayISO() { return new Date().toISOString().slice(0, 10); }
   function monthISO() { return new Date().toISOString().slice(0, 7); }
 
+  function setCustomerOnlyMode(enabled) {
+    document.body.classList.toggle("customer-only-mode", enabled);
+    if (enabled) {
+      document.getElementById("deptSub").textContent = "Order Submission Portal";
+    }
+  }
+
   function isTabLocked(tabId) {
     const until = Number(state.security.lockedUntil[tabId] || 0);
     if (until <= 0) return false;
     if (Date.now() >= until) {
-      // 24 hours passed -> auto unlock
       state.security.lockedUntil[tabId] = 0;
       state.security.failedAttempts[tabId] = 0;
       saveState("AUTO_UNLOCK", { tabId });
@@ -535,6 +532,7 @@
   }
 
   function openLockForTab(tabId) {
+    setCustomerOnlyMode(false);
     pendingTabTarget = tabId;
     const names = {
       "inventory-prod": "Production & QR Inventory",
@@ -549,7 +547,7 @@
     const locked = isTabLocked(tabId);
     const fails = Number(state.security.failedAttempts[tabId] || 0);
     document.getElementById("lockAttemptsInfo").textContent = locked
-      ? `Status: Locked (3 wrong attempts)`
+      ? "Status: Locked (3 wrong attempts)"
       : `Wrong attempts: ${fails} / 3 (3rd wrong attempt locks for 24h)`;
 
     document.getElementById("pinEntryArea").style.display = locked ? "none" : "block";
@@ -565,7 +563,6 @@
   function verifyDeptPin() {
     const tabId = pendingTabTarget;
     if (!tabId || isTabLocked(tabId)) return openLockForTab(tabId);
-
     const entered = document.getElementById("deptPinInput").value.trim();
     const expected = String(state.pins[tabId] || "");
 
@@ -594,6 +591,7 @@
 
   function fallbackToCustomer() {
     document.getElementById("lockScreen").style.display = "none";
+    setCustomerOnlyMode(true);
     activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
   }
 
@@ -620,8 +618,13 @@
 
   function applyDeptUrlOnLoad() {
     const dept = (new URLSearchParams(window.location.search).get("dept") || "").toLowerCase();
+    if (dept === "customer") {
+      setCustomerOnlyMode(true);
+      activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
+      return;
+    }
+
     const map = {
-      customer: "customer-app",
       marketing: "marketing-tab",
       production: "inventory-prod",
       finance: "finance-tab",
@@ -866,73 +869,4 @@
   function exportJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "cosmic_sync_data.json"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function importJSON(ev) {
-    const f = ev.target.files && ev.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      try { state = { ...structuredClone(defaultState), ...JSON.parse(r.result) }; saveState(); renderAll(); }
-      catch { alert("Invalid JSON"); }
-    };
-    r.readAsText(f);
-  }
-
-  function renderAll() {
-    document.getElementById("pinProdInput").value = state.pins["inventory-prod"];
-    document.getElementById("pinMktInput").value = state.pins["marketing-tab"];
-    document.getElementById("pinFinInput").value = state.pins["finance-tab"];
-    document.getElementById("pinOwnerInput").value = state.pins["owner-tab"];
-
-    const deptLabels = {
-      "inventory-prod": "Production",
-      "marketing-tab": "Marketing",
-      "finance-tab": "Finance",
-      "owner-tab": "Owner HQ"
-    };
-    document.getElementById("lockStatusSummary").innerHTML = Object.keys(deptLabels).map(k => {
-      const locked = isTabLocked(k);
-      const fails = state.security.failedAttempts[k] || 0;
-      return `<strong>${deptLabels[k]}:</strong> ${locked ? `<span style="color:#fca5a5;">LOCKED (${formatRemainingLock(k)})</span>` : `Active (Fails: ${fails}/3)`}`;
-    }).join(" &nbsp;|&nbsp; ");
-
-    document.getElementById("cfgComm").value = state.config.commPct;
-    document.getElementById("cfgBonus").value = state.config.orderBonus;
-    document.getElementById("cfgWasteLimit").value = state.config.maxWasteLimit;
-    document.getElementById("activePrintItemLabel").textContent = state.activePrintingItem;
-    document.getElementById("customerOrdersBody").innerHTML = state.orders.map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.paperType}</td><td>${o.sheets}</td><td>${o.printDate}</td><td>LKR ${o.total.toFixed(2)}</td><td><span class="pill">${o.payMethod}</span></td></tr>`).join("");
-    document.getElementById("invCodesList").innerHTML = state.inventory.map(i => `<option value="${i.code}">${i.category} - ${i.name}</option>`).join("");
-    document.getElementById("inventoryTableBody").innerHTML = [...state.inventory].sort((a, b) => a.category.localeCompare(b.category)).map(i => `<tr><td><span class="pill">${i.code}</span></td><td><strong>${i.category}</strong></td><td>${i.name}</td><td>${i.qty}</td><td>LKR ${i.cost.toFixed(2)}</td></tr>`).join("");
-    const todayW = state.wastage.filter(w => w.date === todayISO()).reduce((s, w) => s + w.qty, 0);
-    document.getElementById("treatBanner").innerHTML = todayW <= state.config.maxWasteLimit
-      ? `🍪🍨 <strong>Treat Unlocked!</strong> Today wastage (${todayW}) <= Limit (${state.config.maxWasteLimit})`
-      : `⚠️ <strong>Treat Locked:</strong> Today wastage (${todayW}) > Limit (${state.config.maxWasteLimit}).`;
-    document.getElementById("wastageTableBody").innerHTML = state.wastage.map(w => `<tr><td>${w.photo ? `<img class="thumb" src="${w.photo}"/>` : "-"}</td><td>${w.reason}</td><td>${w.qty}</td><td>${w.date}</td></tr>`).join("");
-    document.getElementById("otherExpTableBody").innerHTML = state.otherExpenses.map(e => `<tr><td>${e.photo ? `<img class="thumb" src="${e.photo}"/>` : "-"}</td><td>${e.title}</td><td>LKR ${e.amt.toFixed(2)}</td><td>${e.date}</td></tr>`).join("");
-    const mktFilter = (document.getElementById("mktOfficerInput").value || "").trim().toLowerCase();
-    const approved = state.receipts.filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!mktFilter || r.officer.toLowerCase().includes(mktFilter))).reduce((s, r) => s + r.commission, 0);
-    const pending = state.receipts.filter(r => r.status === "PENDING").length;
-    document.getElementById("mktApprovedSum").textContent = `LKR ${approved.toFixed(2)}`;
-    document.getElementById("mktPendingNum").textContent = String(pending);
-    document.getElementById("mktTableBody").innerHTML = state.receipts.map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer}</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><span class="pill">${r.status}</span></td></tr>`).join("");
-    document.getElementById("approvalTableBody").innerHTML = state.receipts.filter(r => r.status === "PENDING").map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer} (${r.slipRef})</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><button class="ok sm" onclick="decideReceipt('${r.id}',true)">Accept</button> <button class="bad sm" onclick="decideReceipt('${r.id}',false)">Reject</button></td></tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted);">Pending receipts නැත.</td></tr>`;
-    const sirNaya = state.nayas.filter(n => n.type === "SIR_OWES_US" && !n.settled).reduce((s, n) => s + n.amount, 0);
-    const supNaya = state.nayas.filter(n => n.type === "WE_OWE_SUPPLIER" && !n.settled).reduce((s, n) => s + n.amount, 0);
-    document.getElementById("sirNayaTotal").textContent = `LKR ${sirNaya.toFixed(2)}`;
-    document.getElementById("supNayaTotal").textContent = `LKR ${supNaya.toFixed(2)}`;
-    document.getElementById("nayaTableBody").innerHTML = state.nayas.map(n => `<tr><td><span class="pill">${n.type === "SIR_OWES_US" ? "Sir -> Us" : "Us -> Supplier"}</span></td><td>${n.party}</td><td>LKR ${n.amount.toFixed(2)}</td><td>${n.dueDate}</td><td>${n.settled ? "Settled" : "Unpaid"}</td><td>${n.type === "SIR_OWES_US" && !n.settled ? `<button class="sec sm" onclick="notifyCustomerFromFinance('${n.id}')">🔔 Notify Customer App</button> ` : ""}<button class="ok sm" onclick="toggleNayaPaid('${n.id}')">${n.settled ? "Reopen" : "Mark Paid"}</button></td></tr>`).join("");
-    document.getElementById("staffTableBody").innerHTML = state.staff.map(s => `<tr><td><strong>${s.name}</strong></td><td><span class="pill">${s.dept}</span></td><td>LKR ${s.salary.toFixed(2)}</td></tr>`).join("");
-    renderSalaryCalc();
-    renderPaperChart();
-  }
-
-  populateAvailableDates();
-  applyDeptUrlOnLoad();
-  renderAll();
-</script>
-</body>
-</html>
+    const a = document.createElement("a
