@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cosmic Printers ERP | Smart GUI & Operations</title>
+  <title>Cosmic Printers ERP | 3-Strike Lock & Password Manager</title>
   <style>
     :root {
       --bg: #070d19;
@@ -103,21 +103,49 @@
       padding: 12px 16px; border-radius: 12px; margin-bottom: 14px;
     }
     .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
-    .ai-photo-card {
-      background: var(--card2); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px;
-    }
     .qr-card {
       display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
       background: #fff; color: #000; padding: 10px; border-radius: 10px; margin-top: 10px;
+    }
+    #lockScreen {
+      position: fixed; inset: 0; background: rgba(4, 9, 20, 0.96);
+      z-index: 999; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .lock-box {
+      max-width: 400px; width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; text-align: center;
     }
   </style>
 </head>
 <body>
 
+<!-- Department Password / PIN Modal with 3-Strike & 24h Lockout -->
+<div id="lockScreen">
+  <div class="lock-box">
+    <h2 style="justify-content:center; border:none; margin-bottom:6px;">🔐 Department Access Lock</h2>
+    <p id="lockDeptLabel" style="font-size:13px; color:var(--muted); margin-top:0;"></p>
+    <p id="lockAttemptsInfo" style="font-size:12px; color:var(--accent); margin:4px 0 10px;"></p>
+
+    <div id="pinEntryArea">
+      <input type="password" id="deptPinInput" placeholder="Enter Password / PIN" style="text-align:center; font-size:16px; letter-spacing:3px;" />
+      <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
+        <button id="unlockBtn" onclick="verifyDeptPin()">🔓 Unlock</button>
+        <button class="sec" onclick="fallbackToCustomer()">🛍️ Customer App</button>
+      </div>
+    </div>
+
+    <div id="lockedOutArea" style="display:none; background:#2a0d12; border:1px solid var(--bad); border-radius:10px; padding:12px; margin-top:8px;">
+      <strong style="color:#fca5a5;">⛔ Locked for 24 Hours (3 Wrong Attempts)</strong>
+      <p id="lockCountdownText" style="font-size:12px; color:#fecaca; margin:6px 0 10px;"></p>
+      <button class="sec sm" onclick="fallbackToCustomer()">🛍️ Go to Customer App</button>
+    </div>
+
+    <p id="lockErrorMsg" style="color:#fca5a5; font-size:12px; margin-bottom:0; margin-top:10px;"></p>
+  </div>
+</div>
+
 <header>
   <div class="brand-wrap">
-    <!-- AI-style SVG Brand Emblem -->
     <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="g1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
@@ -132,10 +160,11 @@
     </svg>
     <div class="brand-title">
       COSMIC PRINTERS ERP
-      <span class="brand-sub" id="deptSub">Customer App • QR Inventory • Finance Naya • Owner HQ</span>
+      <span class="brand-sub" id="deptSub">Protected Department Portal • 3-Strike 24h Lock</span>
     </div>
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <button class="sec sm" onclick="lockCurrentSession()">🔒 Lock</button>
     <span class="pill" id="cloudBadge">Cloud: Ready</span>
     <button class="sec sm" onclick="exportJSON()">⬇️ JSON Export</button>
     <label class="sec sm" style="margin:0; cursor:pointer; display:inline-flex; align-items:center;">
@@ -146,16 +175,15 @@
 </header>
 
 <div class="tabs" id="tabsBar">
-  <button class="tab active" data-tab="customer-app" onclick="openTab('customer-app', this)">🛍️ Customer App</button>
-  <button class="tab" data-tab="inventory-prod" onclick="openTab('inventory-prod', this)">📦 QR Inventory & Production</button>
-  <button class="tab" data-tab="marketing-tab" onclick="openTab('marketing-tab', this)">📣 Marketing</button>
-  <button class="tab" data-tab="finance-tab" onclick="openTab('finance-tab', this)">💳 Finance & Naya</button>
-  <button class="tab" data-tab="owner-tab" onclick="openTab('owner-tab', this)">👑 Owner HQ</button>
+  <button class="tab active" data-tab="customer-app" onclick="handleTabClick('customer-app', this)">🛍️ Customer App</button>
+  <button class="tab" data-tab="inventory-prod" onclick="handleTabClick('inventory-prod', this)">📦 QR Inventory & Production</button>
+  <button class="tab" data-tab="marketing-tab" onclick="handleTabClick('marketing-tab', this)">📣 Marketing</button>
+  <button class="tab" data-tab="finance-tab" onclick="handleTabClick('finance-tab', this)">💳 Finance & Naya</button>
+  <button class="tab" data-tab="owner-tab" onclick="handleTabClick('owner-tab', this)">👑 Owner HQ</button>
 </div>
 
 <div class="wrap">
 
-  <!-- Notification sent from Finance Tab to Customer App -->
   <div id="customerAlertBox" class="notif-banner">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
       <div><strong>🔔 Customer App Notification:</strong> <span id="customerAlertText"></span></div>
@@ -163,25 +191,13 @@
     </div>
   </div>
 
-  <!-- =========================================================
-       1. CUSTOMER APP & CUSTOMER ORDER (Available Dates Only, No Credit Option)
-  ========================================================== -->
+  <!-- 1. CUSTOMER APP -->
   <div id="customer-app" class="panel active">
     <div class="card">
       <h2>🛍️ Customer Order (අපිට Print කරන්න පුළුවන් දවස් පමණි)</h2>
-      <p style="font-size:12px; color:var(--muted); margin-top:0;">
-        උදාහරණය: Customer නම සහ Paper වර්ගය දමා, <strong>Available Print Date</strong> dropdown එකෙන් අපිට print කරන්න පුළුවන් දවස තෝරන්න (ඉරිදා/Sunday හැර ඉදිරි දින පෙන්වයි).
-      </p>
-
       <div class="g3">
-        <div>
-          <label>Customer Name</label>
-          <input id="custNameInput" placeholder="උදා: Kasun" />
-        </div>
-        <div>
-          <label>Marketing Rep (Optional)</label>
-          <input id="custRepInput" placeholder="උදා: Nimal" />
-        </div>
+        <div><label>Customer Name</label><input id="custNameInput" placeholder="උදා: Kasun" /></div>
+        <div><label>Marketing Rep (Optional)</label><input id="custRepInput" placeholder="උදා: Nimal" /></div>
         <div>
           <label>Payment Method (BD / COD පමණි)</label>
           <select id="custPayInput">
@@ -190,7 +206,6 @@
           </select>
         </div>
       </div>
-
       <div class="g4" style="margin-top:12px;">
         <div>
           <label>Paper Type</label>
@@ -202,88 +217,27 @@
             <option value="A3 B&W">A3 B&W</option>
           </select>
         </div>
-        <div>
-          <label>Sheets Count</label>
-          <input type="number" id="custSheetsInput" value="100" min="1" />
-        </div>
-        <div>
-          <label>Rate per Sheet (LKR)</label>
-          <input type="number" id="custRateInput" value="10" min="0" step="0.5" />
-        </div>
-        <div>
-          <label>Available Print Date (අපිට පුළුවන් දවස)</label>
-          <select id="custAvailableDateSelect"></select>
-        </div>
+        <div><label>Sheets Count</label><input type="number" id="custSheetsInput" value="100" min="1" /></div>
+        <div><label>Rate per Sheet (LKR)</label><input type="number" id="custRateInput" value="10" min="0" step="0.5" /></div>
+        <div><label>Available Print Date</label><select id="custAvailableDateSelect"></select></div>
       </div>
-
       <button style="margin-top:12px;" onclick="addCustomerOrder()">➕ Add Customer Order</button>
-
       <table>
-        <thead>
-          <tr><th>Order ID</th><th>Customer</th><th>Paper</th><th>Sheets</th><th>Print Date</th><th>Total</th><th>Payment</th></tr>
-        </thead>
+        <thead><tr><th>Order ID</th><th>Customer</th><th>Paper</th><th>Sheets</th><th>Print Date</th><th>Total</th><th>Payment</th></tr></thead>
         <tbody id="customerOrdersBody"></tbody>
       </table>
     </div>
-
-    <!-- AI-Style Visual Showcase -->
-    <div class="card">
-      <h2>🎨 AI-Style Print & Studio Showcase (GUI Gallery)</h2>
-      <div class="g3">
-        <div class="ai-photo-card">
-          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
-            <rect x="15" y="15" width="210" height="90" rx="10" fill="#172554"/>
-            <rect x="30" y="30" width="80" height="60" rx="6" fill="#f59e0b"/>
-            <rect x="122" y="34" width="88" height="12" rx="4" fill="#38bdf8"/>
-            <rect x="122" y="54" width="66" height="10" rx="4" fill="#a78bfa"/>
-            <rect x="122" y="72" width="76" height="10" rx="4" fill="#34d399"/>
-          </svg>
-          <strong style="font-size:13px;">High-Speed Tute & Cover Studio</strong>
-          <span style="font-size:11px; color:var(--muted);">AI-styled visual layout for print & binding</span>
-        </div>
-
-        <div class="ai-photo-card">
-          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
-            <rect x="15" y="15" width="210" height="90" rx="10" fill="#1e1b4b"/>
-            <circle cx="70" cy="60" r="26" fill="#8b5cf6"/>
-            <path d="M58 60 L67 69 L83 52" stroke="#fff" stroke-width="4" fill="none"/>
-            <rect x="112" y="36" width="96" height="12" rx="4" fill="#f59e0b"/>
-            <rect x="112" y="56" width="80" height="10" rx="4" fill="#94a3b8"/>
-          </svg>
-          <strong style="font-size:13px;">Smart QR Stock & Wastage Check</strong>
-          <span style="font-size:11px; color:var(--muted);">Scan items & reward low wastage with treats</span>
-        </div>
-
-        <div class="ai-photo-card">
-          <svg viewBox="0 0 240 120" style="width:100%; border-radius:8px; background:#091120;">
-            <rect x="15" y="15" width="210" height="90" rx="10" fill="#064e3b"/>
-            <rect x="32" y="68" width="24" height="22" rx="3" fill="#34d399"/>
-            <rect x="66" y="52" width="24" height="38" rx="3" fill="#38bdf8"/>
-            <rect x="100" y="36" width="24" height="54" rx="3" fill="#f59e0b"/>
-            <rect x="138" y="40" width="70" height="12" rx="4" fill="#ecfdf5"/>
-            <rect x="138" y="60" width="54" height="10" rx="4" fill="#a7f3d0"/>
-          </svg>
-          <strong style="font-size:13px;">Paper Analytics & Finance Sync</strong>
-          <span style="font-size:11px; color:var(--muted);">Daily/Monthly charts + offline C++ JSON sync</span>
-        </div>
-      </div>
-    </div>
   </div>
 
-  <!-- =========================================================
-       2. QR / BARCODE INVENTORY (BY CATEGORY), SCAN, WASTAGE & EXPENSES
-  ========================================================== -->
+  <!-- 2. QR INVENTORY & PRODUCTION -->
   <div id="inventory-prod" class="panel">
     <div class="g2">
       <div class="card">
         <h2>📥 Add Stock by Category (QR / Barcode)</h2>
         <div class="g2">
+          <div><label>QR / Barcode Value</label><input id="invCodeInput" placeholder="QR-P230-01" /></div>
           <div>
-            <label>QR / Barcode Value</label>
-            <input id="invCodeInput" placeholder="උදා: QR-P230-01" />
-          </div>
-          <div>
-            <label>Item Category (වර්ගය)</label>
+            <label>Item Category</label>
             <select id="invCategoryInput">
               <option value="Paper">Paper</option>
               <option value="Photo Paper">Photo Paper</option>
@@ -292,15 +246,12 @@
               <option value="Binding / Other">Binding / Other</option>
             </select>
           </div>
-          <div>
-            <label>Item Name</label>
-            <input id="invNameInput" placeholder="උදා: Photo Glossy 230gsm" />
-          </div>
+          <div><label>Item Name</label><input id="invNameInput" placeholder="Photo Glossy 230gsm" /></div>
           <div>
             <label>Qty & Unit Cost (LKR)</label>
             <div style="display:flex; gap:6px;">
-              <input type="number" id="invQtyInput" value="200" min="1" placeholder="Qty" />
-              <input type="number" id="invCostInput" value="40" min="0" step="0.5" placeholder="Cost" />
+              <input type="number" id="invQtyInput" value="200" min="1" />
+              <input type="number" id="invCostInput" value="40" min="0" step="0.5" />
             </div>
           </div>
         </div>
@@ -312,17 +263,14 @@
       </div>
 
       <div class="card">
-        <h2>📷 Scan Item for Production (දැන් Print කරන්න ගන්න Item එක)</h2>
+        <h2>📷 Scan Item for Production</h2>
         <div class="g2">
           <div>
             <label>Scan / Enter QR or Barcode</label>
             <input id="scanCodeInput" placeholder="Scan or pick code..." list="invCodesList" />
             <datalist id="invCodesList"></datalist>
           </div>
-          <div>
-            <label>Qty Taken to Print</label>
-            <input type="number" id="scanQtyInput" value="25" min="1" />
-          </div>
+          <div><label>Qty Taken to Print</label><input type="number" id="scanQtyInput" value="25" min="1" /></div>
         </div>
         <button class="ok" style="margin-top:10px;" onclick="scanItemForPrint()">🔍 Scan & Start Printing</button>
         <div class="box" style="margin-top:10px; font-size:13px;">
@@ -332,11 +280,9 @@
     </div>
 
     <div class="card">
-      <h2>📦 Inventory Stock (Grouped by Category)</h2>
+      <h2>📦 Inventory Stock (by Category)</h2>
       <table>
-        <thead>
-          <tr><th>QR / Barcode</th><th>Category</th><th>Item Name</th><th>Stock Qty</th><th>Unit Cost</th></tr>
-        </thead>
+        <thead><tr><th>QR / Barcode</th><th>Category</th><th>Item Name</th><th>Stock Qty</th><th>Unit Cost</th></tr></thead>
         <tbody id="inventoryTableBody"></tbody>
       </table>
     </div>
@@ -351,10 +297,7 @@
         <div style="margin-top:10px;"><label>Wastage Photo</label><input type="file" id="wastePhotoFile" accept="image/*" /></div>
         <button style="margin-top:10px;" onclick="addWastageRecord()">➕ Add Wastage Record</button>
         <div id="treatBanner" class="box" style="margin-top:10px; font-size:13px;"></div>
-        <table>
-          <thead><tr><th>Photo</th><th>Reason</th><th>Qty</th><th>Date</th></tr></thead>
-          <tbody id="wastageTableBody"></tbody>
-        </table>
+        <table><thead><tr><th>Photo</th><th>Reason</th><th>Qty</th><th>Date</th></tr></thead><tbody id="wastageTableBody"></tbody></table>
       </div>
 
       <div class="card">
@@ -365,17 +308,12 @@
         </div>
         <div style="margin-top:10px;"><label>Bill / Item Photo</label><input type="file" id="otherExpPhotoFile" accept="image/*" /></div>
         <button style="margin-top:10px;" onclick="addOtherExpense()">➕ Add Daily Expense</button>
-        <table>
-          <thead><tr><th>Photo</th><th>Expense</th><th>Amount</th><th>Date</th></tr></thead>
-          <tbody id="otherExpTableBody"></tbody>
-        </table>
+        <table><thead><tr><th>Photo</th><th>Expense</th><th>Amount</th><th>Date</th></tr></thead><tbody id="otherExpTableBody"></tbody></table>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       3. MARKETING TAB
-  ========================================================== -->
+  <!-- 3. MARKETING TAB -->
   <div id="marketing-tab" class="panel">
     <div class="card">
       <h2>📣 Marketing Receipt Submission & Monthly Earnings</h2>
@@ -386,34 +324,18 @@
         <div><label>Receipt / Slip Ref</label><input id="mktSlipInput" placeholder="Slip #001" /></div>
       </div>
       <button style="margin-top:10px;" onclick="addMarketingReceipt()">➕ Add / Submit Receipt</button>
-
       <div class="g2" style="margin-top:12px;">
-        <div class="box">
-          <div style="font-size:12px; color:var(--muted);">Approved Monthly Earnings</div>
-          <div class="kpi" id="mktApprovedSum">LKR 0.00</div>
-        </div>
-        <div class="box">
-          <div style="font-size:12px; color:var(--muted);">Pending Receipts</div>
-          <div class="kpi" id="mktPendingNum">0</div>
-        </div>
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Approved Monthly Earnings</div><div class="kpi" id="mktApprovedSum">LKR 0.00</div></div>
+        <div class="box"><div style="font-size:12px; color:var(--muted);">Pending Receipts</div><div class="kpi" id="mktPendingNum">0</div></div>
       </div>
-
-      <table>
-        <thead><tr><th>Date</th><th>Officer</th><th>Customer</th><th>Sale</th><th>Commission</th><th>Status</th></tr></thead>
-        <tbody id="mktTableBody"></tbody>
-      </table>
+      <table><thead><tr><th>Date</th><th>Officer</th><th>Customer</th><th>Sale</th><th>Commission</th><th>Status</th></tr></thead><tbody id="mktTableBody"></tbody></table>
     </div>
   </div>
 
-  <!-- =========================================================
-       4. FINANCE & NAYA TAB (Only place for Credit/Naya & Sir App Notification)
-  ========================================================== -->
+  <!-- 4. FINANCE & NAYA TAB -->
   <div id="finance-tab" class="panel">
     <div class="card">
       <h2>💳 Finance Naya Management & Sir App Notification</h2>
-      <p style="font-size:12px; color:var(--muted); margin-top:0;">
-        හදිස්සියේ ණයට දුන්නොත් මෙතනින් ණය record එක add කරලා <strong>Notify Customer App</strong> button එකෙන් notification යවන්න පුළුවන්.
-      </p>
       <div class="g4">
         <div>
           <label>Naya Type</label>
@@ -427,27 +349,40 @@
         <div><label>Due Date</label><input type="date" id="nayaDueInput" /></div>
       </div>
       <button style="margin-top:10px;" onclick="addNaya()">➕ Add Naya Record</button>
-
       <div class="g2" style="margin-top:12px;">
         <div class="box"><div style="font-size:12px; color:var(--muted);">Sirla Apita Wena Naya</div><div class="kpi" id="sirNayaTotal">LKR 0.00</div></div>
         <div class="box"><div style="font-size:12px; color:var(--muted);">Api Badu Ganna Ayata Wena Naya</div><div class="kpi" id="supNayaTotal" style="color:var(--bad);">LKR 0.00</div></div>
       </div>
-
-      <table>
-        <thead><tr><th>Type</th><th>Name</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="nayaTableBody"></tbody>
-      </table>
+      <table><thead><tr><th>Type</th><th>Name</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="nayaTableBody"></tbody></table>
     </div>
   </div>
 
-  <!-- =========================================================
-       5. OWNER HQ TAB (Staff Add, Receipt Approvals, Salary, Charts & Red App Reset)
-  ========================================================== -->
+  <!-- 5. OWNER HQ TAB -->
   <div id="owner-tab" class="panel">
+
+    <!-- Change Department Passwords / PINs & Manage Lockouts -->
     <div class="card">
-      <h2>👥 Add Staff Member (කාර්ය මණ්ඩලය එකතු කිරීම)</h2>
+      <h2>🔐 Change Department Passwords / PINs & Lock Status</h2>
+      <p style="font-size:12px; color:var(--muted); margin-top:0;">
+        අංශ වල passwords/PINs මෙතනින් වෙනස් කරන්න. 3 පාරක් වැරදි PIN ගහලා 24h lock වුණොත් පහළින් <strong>Unlock Now</strong> කරන්නත් පුළුවන්.
+      </p>
       <div class="g4">
-        <div><label>Staff Name</label><input id="staffNameInput" placeholder="උදා: Saman" /></div>
+        <div><label>Production PIN</label><input type="text" id="pinProdInput" /></div>
+        <div><label>Marketing PIN</label><input type="text" id="pinMktInput" /></div>
+        <div><label>Finance PIN</label><input type="text" id="pinFinInput" /></div>
+        <div><label>Owner HQ PIN</label><input type="text" id="pinOwnerInput" /></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+        <button class="ok" onclick="saveNewDeptPins()">💾 Save New Passwords</button>
+        <button class="sec sm" onclick="clearAllDepartmentLocks()">🔓 Unlock All 24h Locks Now</button>
+      </div>
+      <div id="lockStatusSummary" class="box" style="margin-top:10px; font-size:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>👥 Add Staff Member</h2>
+      <div class="g4">
+        <div><label>Staff Name</label><input id="staffNameInput" placeholder="Saman" /></div>
         <div>
           <label>Department</label>
           <select id="staffDeptInput">
@@ -457,27 +392,19 @@
           </select>
         </div>
         <div><label>Base Salary (LKR)</label><input type="number" id="staffSalaryInput" value="35000" min="0" /></div>
-        <div style="display:flex; align-items:flex-end;">
-          <button style="width:100%;" onclick="addStaffMember()">➕ Add Staff</button>
-        </div>
+        <div style="display:flex; align-items:flex-end;"><button style="width:100%;" onclick="addStaffMember()">➕ Add Staff</button></div>
       </div>
-      <table>
-        <thead><tr><th>Name</th><th>Department</th><th>Base Salary</th></tr></thead>
-        <tbody id="staffTableBody"></tbody>
-      </table>
+      <table><thead><tr><th>Name</th><th>Department</th><th>Base Salary</th></tr></thead><tbody id="staffTableBody"></tbody></table>
     </div>
 
     <div class="card">
-      <h2>✅ Marketing Receipts Approval (Accept / Reject)</h2>
-      <table>
-        <thead><tr><th>Date</th><th>Officer</th><th>Customer & Ref</th><th>Sale</th><th>Commission</th><th>Action</th></tr></thead>
-        <tbody id="approvalTableBody"></tbody>
-      </table>
+      <h2>✅ Marketing Receipts Approval</h2>
+      <table><thead><tr><th>Date</th><th>Officer</th><th>Customer & Ref</th><th>Sale</th><th>Commission</th><th>Action</th></tr></thead><tbody id="approvalTableBody"></tbody></table>
     </div>
 
     <div class="g2">
       <div class="card">
-        <h2>💼 Salary Bonus & Treat Settings (වෙනස් කළ හැකි අගයන්)</h2>
+        <h2>💼 Salary Bonus & Treat Settings</h2>
         <div class="g2">
           <div><label>Commission (%)</label><input type="number" id="cfgComm" value="5" min="0" onchange="saveConfig()" /></div>
           <div><label>Bonus per Order (LKR)</label><input type="number" id="cfgBonus" value="500" min="0" onchange="saveConfig()" /></div>
@@ -500,12 +427,8 @@
       </div>
     </div>
 
-    <!-- RED APP RESET BUTTON WITH PASSWORD + ARE YOU SURE -->
     <div class="card" style="border-color: var(--bad);">
       <h2 style="color:#fca5a5;">⚠️ Danger Zone — App Reset</h2>
-      <p style="font-size:12px; color:var(--muted); margin-top:0;">
-        සියලුම local data reset කිරීමට පහළ රතු පාට <strong>App Reset</strong> button එක click කර Password (`1234`) සහ <strong>Are you sure?</strong> confirm කරන්න.
-      </p>
       <button class="bad" onclick="triggerAppReset()">🛑 App Reset</button>
     </div>
   </div>
@@ -514,10 +437,33 @@
 
 <script>
   const CLOUD_WEBHOOK_URL = "";
-  const OWNER_RESET_PIN = "1234";
-  const STORAGE_KEY = "cosmic_printers_erp_v5";
+  const STORAGE_KEY = "cosmic_printers_erp_v7";
+  const LOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  let pendingTabTarget = null;
+  let unlockedTabs = new Set(["customer-app"]);
 
   const defaultState = {
+    pins: {
+      "inventory-prod": "2222",
+      "marketing-tab": "1111",
+      "finance-tab": "3333",
+      "owner-tab": "9999"
+    },
+    security: {
+      failedAttempts: {
+        "inventory-prod": 0,
+        "marketing-tab": 0,
+        "finance-tab": 0,
+        "owner-tab": 0
+      },
+      lockedUntil: {
+        "inventory-prod": 0,
+        "marketing-tab": 0,
+        "finance-tab": 0,
+        "owner-tab": 0
+      }
+    },
     config: { commPct: 5, orderBonus: 500, maxWasteLimit: 5 },
     activePrintingItem: "None scanned yet",
     staff: [
@@ -528,11 +474,7 @@
       { code: "QR-A4-80-01", category: "Paper", name: "A4 80gsm Copy Paper", qty: 2000, cost: 5 },
       { code: "QR-P135-01", category: "Photo Paper", name: "Photo 135gsm", qty: 300, cost: 30 }
     ],
-    orders: [],
-    wastage: [],
-    otherExpenses: [],
-    receipts: [],
-    nayas: []
+    orders: [], wastage: [], otherExpenses: [], receipts: [], nayas: []
   };
 
   let state = loadState();
@@ -540,7 +482,17 @@
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? { ...structuredClone(defaultState), ...JSON.parse(raw) } : structuredClone(defaultState);
+      if (!raw) return structuredClone(defaultState);
+      const parsed = JSON.parse(raw);
+      return {
+        ...structuredClone(defaultState),
+        ...parsed,
+        pins: { ...structuredClone(defaultState.pins), ...(parsed.pins || {}) },
+        security: {
+          failedAttempts: { ...structuredClone(defaultState.security.failedAttempts), ...((parsed.security && parsed.security.failedAttempts) || {}) },
+          lockedUntil: { ...structuredClone(defaultState.security.lockedUntil), ...((parsed.security && parsed.security.lockedUntil) || {}) }
+        }
+      };
     } catch {
       return structuredClone(defaultState);
     }
@@ -551,39 +503,114 @@
     if (CLOUD_WEBHOOK_URL && navigator.onLine) {
       document.getElementById("cloudBadge").textContent = "Cloud: Syncing...";
       fetch(CLOUD_WEBHOOK_URL, {
-        method: "POST",
-        mode: "no-cors",
+        method: "POST", mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventType, payload })
-      }).then(() => {
-        document.getElementById("cloudBadge").textContent = "Cloud: Synced";
-      }).catch(() => {
-        document.getElementById("cloudBadge").textContent = "Cloud: Offline";
-      });
+      }).then(() => { document.getElementById("cloudBadge").textContent = "Cloud: Synced"; })
+        .catch(() => { document.getElementById("cloudBadge").textContent = "Cloud: Offline"; });
     }
   }
 
   function todayISO() { return new Date().toISOString().slice(0, 10); }
   function monthISO() { return new Date().toISOString().slice(0, 7); }
 
-  function populateAvailableDates() {
-    const sel = document.getElementById("custAvailableDateSelect");
-    const options = [];
-    const cur = new Date();
-    for (let i = 0; i < 14 && options.length < 8; i++) {
-      const d = new Date(cur);
-      d.setDate(cur.getDate() + i);
-      // Skip Sunday (0) as non-printing day example
-      if (d.getDay() !== 0) {
-        const iso = d.toISOString().slice(0, 10);
-        const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + ` (${iso})`;
-        options.push(`<option value="${iso}">${label}</option>`);
-      }
+  function isTabLocked(tabId) {
+    const until = Number(state.security.lockedUntil[tabId] || 0);
+    if (until <= 0) return false;
+    if (Date.now() >= until) {
+      // 24 hours passed -> auto unlock
+      state.security.lockedUntil[tabId] = 0;
+      state.security.failedAttempts[tabId] = 0;
+      saveState("AUTO_UNLOCK", { tabId });
+      return false;
     }
-    sel.innerHTML = options.join("");
+    return true;
   }
 
-  function openTab(tabId, btn) {
+  function formatRemainingLock(tabId) {
+    const rem = Math.max(0, Number(state.security.lockedUntil[tabId] || 0) - Date.now());
+    const hrs = Math.floor(rem / (1000 * 60 * 60));
+    const mins = Math.floor((rem % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hrs}h ${mins}m left`;
+  }
+
+  function openLockForTab(tabId) {
+    pendingTabTarget = tabId;
+    const names = {
+      "inventory-prod": "Production & QR Inventory",
+      "marketing-tab": "Marketing Department",
+      "finance-tab": "Finance & Naya",
+      "owner-tab": "Owner HQ (Private)"
+    };
+    document.getElementById("lockDeptLabel").textContent = `${names[tabId] || tabId} සඳහා Password / PIN ඇතුළත් කරන්න:`;
+    document.getElementById("deptPinInput").value = "";
+    document.getElementById("lockErrorMsg").textContent = "";
+
+    const locked = isTabLocked(tabId);
+    const fails = Number(state.security.failedAttempts[tabId] || 0);
+    document.getElementById("lockAttemptsInfo").textContent = locked
+      ? `Status: Locked (3 wrong attempts)`
+      : `Wrong attempts: ${fails} / 3 (3rd wrong attempt locks for 24h)`;
+
+    document.getElementById("pinEntryArea").style.display = locked ? "none" : "block";
+    document.getElementById("lockedOutArea").style.display = locked ? "block" : "none";
+    if (locked) {
+      document.getElementById("lockCountdownText").textContent = `Unlock in: ${formatRemainingLock(tabId)}`;
+    }
+
+    document.getElementById("lockScreen").style.display = "flex";
+    if (!locked) setTimeout(() => document.getElementById("deptPinInput").focus(), 50);
+  }
+
+  function verifyDeptPin() {
+    const tabId = pendingTabTarget;
+    if (!tabId || isTabLocked(tabId)) return openLockForTab(tabId);
+
+    const entered = document.getElementById("deptPinInput").value.trim();
+    const expected = String(state.pins[tabId] || "");
+
+    if (entered === expected) {
+      state.security.failedAttempts[tabId] = 0;
+      state.security.lockedUntil[tabId] = 0;
+      saveState("PIN_SUCCESS", { tabId });
+      unlockedTabs.add(tabId);
+      document.getElementById("lockScreen").style.display = "none";
+      const btn = document.querySelector(`.tab[data-tab="${tabId}"]`);
+      activateTabDirectly(tabId, btn);
+    } else {
+      const nextFails = Number(state.security.failedAttempts[tabId] || 0) + 1;
+      state.security.failedAttempts[tabId] = nextFails;
+      if (nextFails >= 3) {
+        state.security.lockedUntil[tabId] = Date.now() + LOCK_DURATION_MS;
+        saveState("PIN_LOCKED_24H", { tabId });
+        openLockForTab(tabId);
+      } else {
+        saveState("PIN_FAIL", { tabId, attempts: nextFails });
+        document.getElementById("lockAttemptsInfo").textContent = `Wrong attempts: ${nextFails} / 3 (3rd wrong attempt locks for 24h)`;
+        document.getElementById("lockErrorMsg").textContent = `වැරදි PIN එකකි! තව උත්සාහ ${3 - nextFails}ක් ඇත.`;
+      }
+    }
+  }
+
+  function fallbackToCustomer() {
+    document.getElementById("lockScreen").style.display = "none";
+    activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
+  }
+
+  function lockCurrentSession() {
+    unlockedTabs = new Set(["customer-app"]);
+    activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
+  }
+
+  function handleTabClick(tabId, btn) {
+    if (!state.pins[tabId] || unlockedTabs.has(tabId)) {
+      activateTabDirectly(tabId, btn);
+    } else {
+      openLockForTab(tabId);
+    }
+  }
+
+  function activateTabDirectly(tabId, btn) {
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     document.getElementById(tabId).classList.add("active");
@@ -591,7 +618,7 @@
     renderAll();
   }
 
-  function applyDeptUrl() {
+  function applyDeptUrlOnLoad() {
     const dept = (new URLSearchParams(window.location.search).get("dept") || "").toLowerCase();
     const map = {
       customer: "customer-app",
@@ -600,13 +627,56 @@
       finance: "finance-tab",
       owner: "owner-tab"
     };
-    if (!map[dept]) return;
-    document.getElementById("deptSub").textContent = `Active Department: ${dept.toUpperCase()}`;
-    document.querySelectorAll(".tab").forEach(t => {
-      if (dept !== "owner" && t.getAttribute("data-tab") === "owner-tab") t.style.display = "none";
+    const target = map[dept];
+    if (!target) return;
+    document.getElementById("deptSub").textContent = `Department Link: ${dept.toUpperCase()} (3-Strike 24h Lock)`;
+    if (state.pins[target]) {
+      openLockForTab(target);
+    } else {
+      activateTabDirectly(target, document.querySelector(`.tab[data-tab="${target}"]`));
+    }
+  }
+
+  function saveNewDeptPins() {
+    const pProd = document.getElementById("pinProdInput").value.trim();
+    const pMkt = document.getElementById("pinMktInput").value.trim();
+    const pFin = document.getElementById("pinFinInput").value.trim();
+    const pOwn = document.getElementById("pinOwnerInput").value.trim();
+    if (!pProd || !pMkt || !pFin || !pOwn) return alert("සියලුම PINs ඇතුළත් කරන්න.");
+
+    state.pins["inventory-prod"] = pProd;
+    state.pins["marketing-tab"] = pMkt;
+    state.pins["finance-tab"] = pFin;
+    state.pins["owner-tab"] = pOwn;
+    saveState("UPDATE_PINS");
+    renderAll();
+    alert("අලුත් Department Passwords / PINs සාර්ථකව save වුණා!");
+  }
+
+  function clearAllDepartmentLocks() {
+    Object.keys(state.security.lockedUntil).forEach(k => {
+      state.security.lockedUntil[k] = 0;
+      state.security.failedAttempts[k] = 0;
     });
-    const targetBtn = document.querySelector(`.tab[data-tab="${map[dept]}"]`);
-    openTab(map[dept], targetBtn);
+    saveState("UNLOCK_ALL");
+    renderAll();
+    alert("සියලුම 24h locks unlock කරන ලදී.");
+  }
+
+  function populateAvailableDates() {
+    const sel = document.getElementById("custAvailableDateSelect");
+    const opts = [];
+    const cur = new Date();
+    for (let i = 0; i < 14 && opts.length < 8; i++) {
+      const d = new Date(cur);
+      d.setDate(cur.getDate() + i);
+      if (d.getDay() !== 0) {
+        const iso = d.toISOString().slice(0, 10);
+        const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + ` (${iso})`;
+        opts.push(`<option value="${iso}">${label}</option>`);
+      }
+    }
+    sel.innerHTML = opts.join("");
   }
 
   function readPhoto(fileInput, cb) {
@@ -638,18 +708,7 @@
     const sheets = Math.max(1, parseInt(document.getElementById("custSheetsInput").value || "1", 10));
     const rate = Math.max(0, parseFloat(document.getElementById("custRateInput").value || "0"));
     const printDate = document.getElementById("custAvailableDateSelect").value || todayISO();
-
-    const ord = {
-      id: "ORD-" + Math.floor(1000 + Math.random() * 9000),
-      date: todayISO(),
-      printDate,
-      customer,
-      rep,
-      payMethod,
-      paperType,
-      sheets,
-      total: sheets * rate
-    };
+    const ord = { id: "ORD-" + Math.floor(1000 + Math.random() * 9000), date: todayISO(), printDate, customer, rep, payMethod, paperType, sheets, total: sheets * rate };
     state.orders.unshift(ord);
     saveState("CUSTOMER_ORDER", ord);
     renderAll();
@@ -661,19 +720,10 @@
     const name = document.getElementById("invNameInput").value.trim();
     const qty = Math.max(1, parseInt(document.getElementById("invQtyInput").value || "1", 10));
     const cost = Math.max(0, parseFloat(document.getElementById("invCostInput").value || "0"));
-    if (!code || !name) return alert("QR/Barcode සහ Item Name ඇතුළත් කරන්න.");
-
-    const existing = state.inventory.find(i => i.code.toLowerCase() === code.toLowerCase());
-    if (existing) {
-      existing.category = category;
-      existing.name = name;
-      existing.qty += qty;
-      existing.cost = cost;
-    } else {
-      state.inventory.push({ code, category, name, qty, cost });
-    }
-    document.getElementById("invCodeInput").value = "";
-    document.getElementById("invNameInput").value = "";
+    if (!code || !name) return alert("Code සහ Name ඇතුළත් කරන්න.");
+    const ex = state.inventory.find(i => i.code.toLowerCase() === code.toLowerCase());
+    if (ex) { ex.category = category; ex.name = name; ex.qty += qty; ex.cost = cost; }
+    else state.inventory.push({ code, category, name, qty, cost });
     saveState("ADD_INVENTORY", { code, category, name, qty });
     renderAll();
   }
@@ -682,7 +732,7 @@
     const code = document.getElementById("scanCodeInput").value.trim();
     const take = Math.max(1, parseInt(document.getElementById("scanQtyInput").value || "1", 10));
     const item = state.inventory.find(i => i.code.toLowerCase() === code.toLowerCase());
-    if (!item) return alert("මෙම QR/Barcode code එක Inventory එකේ නැත.");
+    if (!item) return alert("Code එක හමු නොවීය.");
     if (item.qty < take) return alert("Stock ප්‍රමාණවත් නැත.");
     item.qty -= take;
     state.activePrintingItem = `[${item.category}] ${item.name} (${item.code}) — Taken: ${take}`;
@@ -698,7 +748,6 @@
     readPhoto(fileInp, photo => {
       state.wastage.unshift({ date: todayISO(), qty, reason, photo });
       fileInp.value = "";
-      document.getElementById("wasteReasonInput").value = "";
       saveState("WASTAGE", { qty, reason });
       renderAll();
     });
@@ -711,7 +760,6 @@
     readPhoto(fileInp, photo => {
       state.otherExpenses.unshift({ date: todayISO(), title, amt, photo });
       fileInp.value = "";
-      document.getElementById("otherExpTitleInput").value = "";
       saveState("OTHER_EXPENSE", { title, amt });
       renderAll();
     });
@@ -723,20 +771,8 @@
     const sale = Math.max(0, parseFloat(document.getElementById("mktSaleInput").value || "0"));
     const slipRef = document.getElementById("mktSlipInput").value.trim() || "-";
     const commission = (sale * state.config.commPct) / 100;
-    const rec = {
-      id: "RCP-" + Math.floor(1000 + Math.random() * 9000),
-      date: todayISO(),
-      month: monthISO(),
-      officer,
-      customer,
-      sale,
-      commission,
-      slipRef,
-      status: "PENDING"
-    };
+    const rec = { id: "RCP-" + Math.floor(1000 + Math.random() * 9000), date: todayISO(), month: monthISO(), officer, customer, sale, commission, slipRef, status: "PENDING" };
     state.receipts.unshift(rec);
-    document.getElementById("mktCustNameInput").value = "";
-    document.getElementById("mktSlipInput").value = "";
     saveState("MKT_RECEIPT", rec);
     renderAll();
   }
@@ -754,15 +790,7 @@
     const party = document.getElementById("nayaPartyInput").value.trim() || "Party";
     const amount = Math.max(0, parseFloat(document.getElementById("nayaAmtInput").value || "0"));
     const dueDate = document.getElementById("nayaDueInput").value || todayISO();
-    state.nayas.unshift({
-      id: "NY-" + Math.floor(1000 + Math.random() * 9000),
-      type,
-      party,
-      amount,
-      dueDate,
-      settled: false
-    });
-    document.getElementById("nayaPartyInput").value = "";
+    state.nayas.unshift({ id: "NY-" + Math.floor(1000 + Math.random() * 9000), type, party, amount, dueDate, settled: false });
     saveState("NAYA_ADD", { type, party, amount });
     renderAll();
   }
@@ -770,10 +798,9 @@
   function notifyCustomerFromFinance(id) {
     const n = state.nayas.find(x => x.id === id);
     if (!n) return;
-    document.getElementById("customerAlertText").textContent =
-      ` ${n.party} — හිඟ ණය මුදල LKR ${n.amount.toFixed(2)} (Due: ${n.dueDate}) පියවීමට මතක් කිරීමකි.`;
+    document.getElementById("customerAlertText").textContent = ` ${n.party} — හිඟ ණය LKR ${n.amount.toFixed(2)} (Due: ${n.dueDate}) පියවීමට මතක් කිරීමකි.`;
     document.getElementById("customerAlertBox").style.display = "block";
-    openTab("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
+    activateTabDirectly("customer-app", document.querySelector('.tab[data-tab="customer-app"]'));
   }
 
   function toggleNayaPaid(id) {
@@ -807,14 +834,10 @@
     const staffName = (document.getElementById("cfgSalStaff").value || "").trim().toLowerCase();
     const member = state.staff.find(s => s.name.toLowerCase().includes(staffName));
     const base = member ? member.salary : 35000;
-    const earnedComm = state.receipts
-      .filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!staffName || r.officer.toLowerCase().includes(staffName)))
-      .reduce((s, r) => s + r.commission, 0);
+    const earnedComm = state.receipts.filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!staffName || r.officer.toLowerCase().includes(staffName))).reduce((s, r) => s + r.commission, 0);
     const ordCnt = state.orders.filter(o => !staffName || o.rep.toLowerCase().includes(staffName)).length;
     const bonus = ordCnt * state.config.orderBonus;
-    document.getElementById("salaryCalcBox").innerHTML =
-      `Base: <strong>LKR ${base.toFixed(2)}</strong> | Bonus (${ordCnt} orders): <strong>LKR ${bonus.toFixed(2)}</strong> | Approved Comm: <strong>LKR ${earnedComm.toFixed(2)}</strong><br>` +
-      `Total Salary: <strong style="color:var(--ok);">LKR ${(base + bonus + earnedComm).toFixed(2)}</strong>`;
+    document.getElementById("salaryCalcBox").innerHTML = `Base: <strong>LKR ${base.toFixed(2)}</strong> | Bonus: <strong>LKR ${bonus.toFixed(2)}</strong> | Comm: <strong>LKR ${earnedComm.toFixed(2)}</strong><br>Total: <strong style="color:var(--ok);">LKR ${(base + bonus + earnedComm).toFixed(2)}</strong>`;
   }
 
   function renderPaperChart() {
@@ -825,24 +848,19 @@
     const entries = Object.entries(sums);
     const maxS = Math.max(1, ...entries.map(([, v]) => v));
     document.getElementById("paperChartBox").innerHTML = entries.length
-      ? entries.map(([k, v]) => `
-          <div class="bar-row">
-            <div class="bar-top"><span>${k}</span><strong>${v} sheets</strong></div>
-            <div class="bar-bg"><div class="bar-fill" style="width:${Math.round((v / maxS) * 100)}%"></div></div>
-          </div>`).join("")
-      : `<div style="font-size:12px; color:var(--muted);">මෙම කාලයට print වූ paper records නැත.</div>`;
+      ? entries.map(([k, v]) => `<div class="bar-row"><div class="bar-top"><span>${k}</span><strong>${v} sheets</strong></div><div class="bar-bg"><div class="bar-fill" style="width:${Math.round((v / maxS) * 100)}%"></div></div></div>`).join("")
+      : `<div style="font-size:12px; color:var(--muted);">Records නැත.</div>`;
   }
 
   function triggerAppReset() {
     const pin = prompt("Owner Password ඇතුළත් කරන්න:");
-    if (pin !== OWNER_RESET_PIN) return alert("වැරදි Password එකකි! Reset අවලංගු කරන ලදී.");
-    const sure = confirm("Are you sure? සියලුම data මකා App එක Reset කරන්නද?");
-    if (!sure) return;
+    if (pin !== state.pins["owner-tab"]) return alert("වැරදි Password!");
+    if (!confirm("Are you sure? සියලුම data reset කරන්නද?")) return;
     localStorage.removeItem(STORAGE_KEY);
     state = structuredClone(defaultState);
     saveState("APP_RESET");
     renderAll();
-    alert("App Reset සම්පූර්ණයි!");
+    alert("Reset සම්පූර්ණයි!");
   }
 
   function exportJSON() {
@@ -859,85 +877,61 @@
     const r = new FileReader();
     r.onload = () => {
       try { state = { ...structuredClone(defaultState), ...JSON.parse(r.result) }; saveState(); renderAll(); }
-      catch { alert("Invalid JSON file."); }
+      catch { alert("Invalid JSON"); }
     };
     r.readAsText(f);
   }
 
   function renderAll() {
+    document.getElementById("pinProdInput").value = state.pins["inventory-prod"];
+    document.getElementById("pinMktInput").value = state.pins["marketing-tab"];
+    document.getElementById("pinFinInput").value = state.pins["finance-tab"];
+    document.getElementById("pinOwnerInput").value = state.pins["owner-tab"];
+
+    const deptLabels = {
+      "inventory-prod": "Production",
+      "marketing-tab": "Marketing",
+      "finance-tab": "Finance",
+      "owner-tab": "Owner HQ"
+    };
+    document.getElementById("lockStatusSummary").innerHTML = Object.keys(deptLabels).map(k => {
+      const locked = isTabLocked(k);
+      const fails = state.security.failedAttempts[k] || 0;
+      return `<strong>${deptLabels[k]}:</strong> ${locked ? `<span style="color:#fca5a5;">LOCKED (${formatRemainingLock(k)})</span>` : `Active (Fails: ${fails}/3)`}`;
+    }).join(" &nbsp;|&nbsp; ");
+
     document.getElementById("cfgComm").value = state.config.commPct;
     document.getElementById("cfgBonus").value = state.config.orderBonus;
     document.getElementById("cfgWasteLimit").value = state.config.maxWasteLimit;
     document.getElementById("activePrintItemLabel").textContent = state.activePrintingItem;
-
-    document.getElementById("customerOrdersBody").innerHTML = state.orders
-      .map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.paperType}</td><td>${o.sheets}</td><td>${o.printDate}</td><td>LKR ${o.total.toFixed(2)}</td><td><span class="pill">${o.payMethod}</span></td></tr>`).join("");
-
-    document.getElementById("invCodesList").innerHTML = state.inventory
-      .map(i => `<option value="${i.code}">${i.category} - ${i.name}</option>`).join("");
-
-    const sortedInv = [...state.inventory].sort((a, b) => a.category.localeCompare(b.category));
-    document.getElementById("inventoryTableBody").innerHTML = sortedInv
-      .map(i => `<tr><td><span class="pill">${i.code}</span></td><td><strong>${i.category}</strong></td><td>${i.name}</td><td>${i.qty}</td><td>LKR ${i.cost.toFixed(2)}</td></tr>`).join("");
-
+    document.getElementById("customerOrdersBody").innerHTML = state.orders.map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.paperType}</td><td>${o.sheets}</td><td>${o.printDate}</td><td>LKR ${o.total.toFixed(2)}</td><td><span class="pill">${o.payMethod}</span></td></tr>`).join("");
+    document.getElementById("invCodesList").innerHTML = state.inventory.map(i => `<option value="${i.code}">${i.category} - ${i.name}</option>`).join("");
+    document.getElementById("inventoryTableBody").innerHTML = [...state.inventory].sort((a, b) => a.category.localeCompare(b.category)).map(i => `<tr><td><span class="pill">${i.code}</span></td><td><strong>${i.category}</strong></td><td>${i.name}</td><td>${i.qty}</td><td>LKR ${i.cost.toFixed(2)}</td></tr>`).join("");
     const todayW = state.wastage.filter(w => w.date === todayISO()).reduce((s, w) => s + w.qty, 0);
     document.getElementById("treatBanner").innerHTML = todayW <= state.config.maxWasteLimit
-      ? `🍪🍨 <strong>Treat Unlocked!</strong> Today wastage (${todayW}) <= Limit (${state.config.maxWasteLimit}) -> Biscuit & Ice Palam treat for Production!`
-      : `⚠️ <strong>Treat Not Unlocked:</strong> Today wastage (${todayW}) > Limit (${state.config.maxWasteLimit}).`;
-
-    document.getElementById("wastageTableBody").innerHTML = state.wastage
-      .map(w => `<tr><td>${w.photo ? `<img class="thumb" src="${w.photo}"/>` : "-"}</td><td>${w.reason}</td><td>${w.qty}</td><td>${w.date}</td></tr>`).join("");
-
-    document.getElementById("otherExpTableBody").innerHTML = state.otherExpenses
-      .map(e => `<tr><td>${e.photo ? `<img class="thumb" src="${e.photo}"/>` : "-"}</td><td>${e.title}</td><td>LKR ${e.amt.toFixed(2)}</td><td>${e.date}</td></tr>`).join("");
-
+      ? `🍪🍨 <strong>Treat Unlocked!</strong> Today wastage (${todayW}) <= Limit (${state.config.maxWasteLimit})`
+      : `⚠️ <strong>Treat Locked:</strong> Today wastage (${todayW}) > Limit (${state.config.maxWasteLimit}).`;
+    document.getElementById("wastageTableBody").innerHTML = state.wastage.map(w => `<tr><td>${w.photo ? `<img class="thumb" src="${w.photo}"/>` : "-"}</td><td>${w.reason}</td><td>${w.qty}</td><td>${w.date}</td></tr>`).join("");
+    document.getElementById("otherExpTableBody").innerHTML = state.otherExpenses.map(e => `<tr><td>${e.photo ? `<img class="thumb" src="${e.photo}"/>` : "-"}</td><td>${e.title}</td><td>LKR ${e.amt.toFixed(2)}</td><td>${e.date}</td></tr>`).join("");
     const mktFilter = (document.getElementById("mktOfficerInput").value || "").trim().toLowerCase();
-    const approved = state.receipts
-      .filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!mktFilter || r.officer.toLowerCase().includes(mktFilter)))
-      .reduce((s, r) => s + r.commission, 0);
+    const approved = state.receipts.filter(r => r.status === "ACCEPTED" && r.month === monthISO() && (!mktFilter || r.officer.toLowerCase().includes(mktFilter))).reduce((s, r) => s + r.commission, 0);
     const pending = state.receipts.filter(r => r.status === "PENDING").length;
     document.getElementById("mktApprovedSum").textContent = `LKR ${approved.toFixed(2)}`;
     document.getElementById("mktPendingNum").textContent = String(pending);
-
-    document.getElementById("mktTableBody").innerHTML = state.receipts
-      .map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer}</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><span class="pill">${r.status}</span></td></tr>`).join("");
-
-    document.getElementById("approvalTableBody").innerHTML = state.receipts
-      .filter(r => r.status === "PENDING")
-      .map(r => `<tr>
-        <td>${r.date}</td><td>${r.officer}</td><td>${r.customer} (${r.slipRef})</td>
-        <td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td>
-        <td>
-          <button class="ok sm" onclick="decideReceipt('${r.id}',true)">Accept</button>
-          <button class="bad sm" onclick="decideReceipt('${r.id}',false)">Reject</button>
-        </td>
-      </tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted);">Pending receipts නැත.</td></tr>`;
-
+    document.getElementById("mktTableBody").innerHTML = state.receipts.map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer}</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><span class="pill">${r.status}</span></td></tr>`).join("");
+    document.getElementById("approvalTableBody").innerHTML = state.receipts.filter(r => r.status === "PENDING").map(r => `<tr><td>${r.date}</td><td>${r.officer}</td><td>${r.customer} (${r.slipRef})</td><td>LKR ${r.sale.toFixed(2)}</td><td>LKR ${r.commission.toFixed(2)}</td><td><button class="ok sm" onclick="decideReceipt('${r.id}',true)">Accept</button> <button class="bad sm" onclick="decideReceipt('${r.id}',false)">Reject</button></td></tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted);">Pending receipts නැත.</td></tr>`;
     const sirNaya = state.nayas.filter(n => n.type === "SIR_OWES_US" && !n.settled).reduce((s, n) => s + n.amount, 0);
     const supNaya = state.nayas.filter(n => n.type === "WE_OWE_SUPPLIER" && !n.settled).reduce((s, n) => s + n.amount, 0);
     document.getElementById("sirNayaTotal").textContent = `LKR ${sirNaya.toFixed(2)}`;
     document.getElementById("supNayaTotal").textContent = `LKR ${supNaya.toFixed(2)}`;
-
-    document.getElementById("nayaTableBody").innerHTML = state.nayas
-      .map(n => `<tr>
-        <td><span class="pill">${n.type === "SIR_OWES_US" ? "Sir -> Us" : "Us -> Supplier"}</span></td>
-        <td>${n.party}</td><td>LKR ${n.amount.toFixed(2)}</td><td>${n.dueDate}</td>
-        <td>${n.settled ? "Settled" : "Unpaid"}</td>
-        <td>
-          ${n.type === "SIR_OWES_US" && !n.settled ? `<button class="sec sm" onclick="notifyCustomerFromFinance('${n.id}')">🔔 Notify Customer App</button> ` : ""}
-          <button class="ok sm" onclick="toggleNayaPaid('${n.id}')">${n.settled ? "Reopen" : "Mark Paid"}</button>
-        </td>
-      </tr>`).join("");
-
-    document.getElementById("staffTableBody").innerHTML = state.staff
-      .map(s => `<tr><td><strong>${s.name}</strong></td><td><span class="pill">${s.dept}</span></td><td>LKR ${s.salary.toFixed(2)}</td></tr>`).join("");
-
+    document.getElementById("nayaTableBody").innerHTML = state.nayas.map(n => `<tr><td><span class="pill">${n.type === "SIR_OWES_US" ? "Sir -> Us" : "Us -> Supplier"}</span></td><td>${n.party}</td><td>LKR ${n.amount.toFixed(2)}</td><td>${n.dueDate}</td><td>${n.settled ? "Settled" : "Unpaid"}</td><td>${n.type === "SIR_OWES_US" && !n.settled ? `<button class="sec sm" onclick="notifyCustomerFromFinance('${n.id}')">🔔 Notify Customer App</button> ` : ""}<button class="ok sm" onclick="toggleNayaPaid('${n.id}')">${n.settled ? "Reopen" : "Mark Paid"}</button></td></tr>`).join("");
+    document.getElementById("staffTableBody").innerHTML = state.staff.map(s => `<tr><td><strong>${s.name}</strong></td><td><span class="pill">${s.dept}</span></td><td>LKR ${s.salary.toFixed(2)}</td></tr>`).join("");
     renderSalaryCalc();
     renderPaperChart();
   }
 
   populateAvailableDates();
-  applyDeptUrl();
+  applyDeptUrlOnLoad();
   renderAll();
 </script>
 </body>
